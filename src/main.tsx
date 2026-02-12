@@ -1,0 +1,18 @@
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+import { BrowserRouter } from "react-router-dom";
+import App from "./App.tsx";
+import { EnsureKontentAsParent } from "./components";
+import { CustomElementContext } from "./context";
+
+createRoot(document.getElementById("root")!).render(
+  <StrictMode>
+    <EnsureKontentAsParent>
+      <CustomElementContext>
+        <BrowserRouter basename="/custom-elements">
+          <App />
+        </BrowserRouter>
+      </CustomElementContext>
+    </EnsureKontentAsParent>
+  </StrictMode>,
+);
