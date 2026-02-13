@@ -1,0 +1,38 @@
+name: Test codebase
+
+on:
+  pull_request:
+    branches:
+      - main
+
+  workflow_dispatch:
+    inputs:
+      enable_lint:
+        description: "Enable the linting (And format checking) step"
+        required: false
+        type: boolean
+        default: false
+      enable_test:
+        description: "Enable testing (And building) step"
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  id-token: write
+  packages: write
+  pull-requests: read
+
+jobs:
+  invoke-top-level:
+    name: Invoke Top-Level Pipeline
+    uses: dctx-org/cicd-pipelines/.github/workflows/top-level.yml@centralized-v4
+    secrets: inherit
+    with:
+      stack_type: "container"
+      environment: "pr-tests"
+      enable_lint: ${{ (github.event_name == 'workflow_dispatch' && inputs.enable_lint) || (github.event_name == 'pull_request' && true) }}
+      enable_test: ${{ (github.event_name == 'workflow_dispatch' && inputs.enable_test) || (github.event_name == 'pull_request' && true) }}
+      enable_build: false
+      enable_deploy: false

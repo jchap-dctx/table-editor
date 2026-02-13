@@ -1,0 +1,8 @@
+.git*
+.nvmrc
+node_modules
+eslint*
+dist
+coverage
+README.md
+Dockerfile*
