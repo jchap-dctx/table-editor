@@ -37,7 +37,7 @@ jobs:
     with:
       stack_type: "container"
       environment: ${{ (github.ref_name == 'main' && 'development') }}
-      enable_lint: ${{ (github.event_name == 'workflow_dispatch' && inputs.enable_lint) || (github.event_name == 'pull_request' && true) }}
+      enable_lint: ${{ (github.event_name == 'workflow_dispatch' && inputs.enable_lint) || (github.event_name == 'push' && true) }}
       enable_test: ${{ (github.event_name == 'workflow_dispatch' && inputs.enable_test) || (github.event_name == 'push' && true) }}
       enable_build: ${{ (github.event_name == 'workflow_dispatch' && inputs.enable_build) || (github.ref_name == 'main' && true)  }}
       enable_deploy: false
