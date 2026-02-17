@@ -9,19 +9,19 @@ COPY . .
 RUN npm run build
 
 # ---------- Serve ----------
-FROM node:22-alpine
+FROM nginx:alpine
 WORKDIR /srv
 
-RUN npm i express serve-static
+# Copy built static assets under /custom-elements path in Nginx web root
+COPY --from=build /app/dist /usr/share/nginx/html/custom-elements
 
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nextjs
-COPY server.mjs ./server.mjs
-COPY --from=build /app/dist /srv/dist
-USER nextjs
+# Provide a non-root nginx configuration
+COPY nginx.conf /etc/nginx/nginx.conf
 
-ENV PORT=3000
-ENV HOSTNAME="0.0.0.0"
+# Run Nginx as non-root user
+USER nginx
+
+# Expose non-privileged port and run in foreground
 EXPOSE 3000
 
-CMD ["node", "server.mjs"]
+ENTRYPOINT ["nginx", "-g", "daemon off;"]
