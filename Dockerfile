@@ -18,9 +18,6 @@ COPY --from=build /app/dist /usr/share/nginx/html/custom-elements
 # Provide a non-root nginx configuration
 COPY nginx.conf /etc/nginx/nginx.conf
 
-# Run Nginx as non-root user
-USER nginx
-
 # Expose non-privileged port and run in foreground
 EXPOSE 3000
 
