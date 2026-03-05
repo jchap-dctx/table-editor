@@ -3,7 +3,7 @@ import React, {
   useEffect,
   useLayoutEffect,
   useMemo,
-  useState,
+  useReducer,
 } from "react";
 import type { ReactNode } from "react";
 import { type Config, isConfig } from "../helpers/config";
@@ -28,7 +28,7 @@ export const useVariantInfo = () => useContext(Context).variant;
 type CustomElementContext = Readonly<{
   config: Config;
   value: Value | null;
-  setValue: (newValue: Value) => void;
+  setValue: (newValue: Value | null) => void;
   isDisabled: boolean;
   environmentId: string;
   item: ItemInfo;
@@ -49,53 +49,95 @@ type CustomElementContextProps = Readonly<{
 }>;
 
 export const CustomElementContext = (props: CustomElementContextProps) => {
-  const [isDisabled, setIsDisabled] = useState(false);
-  const [value, setValue] = useState<Value | null | typeof specialMissingValue>(
-    specialMissingValue,
-  );
-  const [config, setConfig] = useState<Config | typeof specialMissingValue>(
-    specialMissingValue,
-  );
-  const [error, setError] = useState<string | null>(null);
-  const [environmentId, setEnvironmentId] = useState<string | null>(null);
-  const [item, setItem] = useState<ItemInfo | null>(null);
-  const [variant, setVariant] = useState<Readonly<{
-    id: string;
-    codename: string;
-  }> | null>(null);
+  type State = {
+    isDisabled: boolean;
+    value: Value | null | typeof specialMissingValue;
+    config: Config | typeof specialMissingValue;
+    error: string | null;
+    environmentId: string | null;
+    item: ItemInfo | null;
+    variant:
+      | Readonly<{
+          id: string;
+          codename: string;
+        }>
+      | null;
+  };
+
+  type Action =
+    | { type: "INIT"; payload: Partial<State> }
+    | { type: "SET_VALUE"; payload: Value | null }
+    | { type: "SET_IS_DISABLED"; payload: boolean }
+    | { type: "SET_CONFIG"; payload: Config }
+    | { type: "SET_ERROR"; payload: string | null }
+    | { type: "SET_ENVIRONMENT_ID"; payload: string }
+    | { type: "SET_ITEM_UPDATE"; payload: Partial<ItemChangedDetails> }
+    | { type: "SET_VARIANT"; payload: State["variant"] };
+
+  const initialState: State = {
+    isDisabled: false,
+    value: specialMissingValue,
+    config: specialMissingValue,
+    error: null,
+    environmentId: null,
+    item: null,
+    variant: null,
+  };
+
+  function reducer(state: State, action: Action): State {
+    switch (action.type) {
+      case "INIT":
+        return { ...state, ...action.payload };
+      case "SET_VALUE":
+        return { ...state, value: action.payload };
+      case "SET_IS_DISABLED":
+        return { ...state, isDisabled: action.payload };
+      case "SET_CONFIG":
+        return { ...state, config: action.payload };
+      case "SET_ERROR":
+        return { ...state, error: action.payload };
+      case "SET_ENVIRONMENT_ID":
+        return { ...state, environmentId: action.payload };
+      case "SET_ITEM_UPDATE":
+        return { ...state, item: state.item ? { ...state.item, ...action.payload } : state.item };
+      case "SET_VARIANT":
+        return { ...state, variant: action.payload };
+      default:
+        return state;
+    }
+  }
+
+  const [state, dispatch] = useReducer(reducer, initialState);
 
   const context = useMemo(() => {
     if (
-      config === specialMissingValue ||
-      value === specialMissingValue ||
-      !environmentId ||
-      !item ||
-      !variant
+      state.config === specialMissingValue ||
+      state.value === specialMissingValue ||
+      !state.environmentId ||
+      !state.item ||
+      !state.variant
     ) {
       return null;
     }
     return {
-      config,
-      value,
+      config: state.config as Config,
+      value: state.value as Value | null,
       setValue: (newValue: Value | null) => {
-        const serializedValue =
-          newValue === null ? null : JSON.stringify(newValue);
-        CustomElement.setValue(serializedValue);
-        setValue(newValue);
+        CustomElement.setValue(newValue);
+        dispatch({ type: "SET_VALUE", payload: newValue });
       },
-      isDisabled,
-      environmentId,
-      item,
-      variant,
+      isDisabled: state.isDisabled,
+      environmentId: state.environmentId,
+      item: state.item,
+      variant: state.variant,
     };
-  }, [config, value, isDisabled, environmentId, item, variant]);
+  }, [state]);
 
   useEffect(() => {
     CustomElement.init((element, context) => {
-      console.log(element, context);
       const normalizedConfig = element.config ?? {};
       if (!isConfig(normalizedConfig)) {
-        setError("The element's config is not valid!");
+        dispatch({ type: "SET_ERROR", payload: "The element's config is not valid!" });
         return;
       }
       const parsedValue = parseValue(element.value);
@@ -105,26 +147,31 @@ export const CustomElementContext = (props: CustomElementContextProps) => {
         );
       }
 
-      setValue(parsedValue === "invalidValue" ? null : parsedValue);
-      setConfig(normalizedConfig as Config);
-      setIsDisabled(element.disabled);
-      setEnvironmentId(context.projectId);
-      setItem(context.item);
-      setVariant(context.variant);
+      dispatch({
+        type: "INIT",
+        payload: {
+          value: parsedValue === "invalidValue" ? null : parsedValue,
+          config: normalizedConfig as Config,
+          isDisabled: element.disabled,
+          environmentId: context.projectId,
+          item: context.item,
+          variant: context.variant,
+        },
+      });
     });
   }, []);
 
   useEffect(() => {
     CustomElement.observeItemChanges((i) =>
-      setItem((prev) => prev && { ...prev, ...i }),
+      dispatch({ type: "SET_ITEM_UPDATE", payload: i }),
     );
   }, []);
 
   useEffect(() => {
-    CustomElement.onDisabledChanged(setIsDisabled);
+    CustomElement.onDisabledChanged((d: boolean) => dispatch({ type: "SET_IS_DISABLED", payload: d }));
   }, []);
 
-  useDynamicHeight(props.height === "dynamic", value);
+  useDynamicHeight(props.height === "dynamic", state.value);
 
   useEffect(() => {
     if (typeof props.height === "number") {
@@ -132,8 +179,8 @@ export const CustomElementContext = (props: CustomElementContextProps) => {
     }
   }, [props.height]);
 
-  if (error) {
-    return <h1 style={{ color: "red" }}>{error}</h1>;
+  if (state.error) {
+    return <h1 style={{ color: "red" }}>{state.error}</h1>;
   }
 
   if (!context) {

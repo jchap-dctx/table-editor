@@ -1,6 +1,4 @@
-export type Value = Readonly<{
-  valueKey: string;
-}>;
+export type Value = string;
 
 export const parseValue = (
   input: string | null,
@@ -9,15 +7,5 @@ export const parseValue = (
     return null;
   }
 
-  try {
-    const parsedValue = JSON.parse(input);
-
-    return isValidValue(parsedValue) ? parsedValue : "invalidValue";
-  } catch (e) {
-    console.error({ e });
-    return "invalidValue";
-  }
+  return input;
 };
-
-const isValidValue = (obj: Readonly<Record<string, unknown>>) =>
-  "valueKey" in obj;
