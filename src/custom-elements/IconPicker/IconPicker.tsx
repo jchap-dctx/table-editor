@@ -39,7 +39,7 @@ export const IconPicker: React.FC = () => {
   }, [hasUserTyped, isOpen, query]);
 
   useLayoutEffect(() => {
-    const newSize = Math.max(document.documentElement.offsetHeight, 100);
+    const newSize = Math.max(document.documentElement.offsetHeight, 50);
     CustomElement.setHeight(Math.ceil(newSize));
   }, [filteredIcons.length, isOpen]);
 
@@ -86,6 +86,9 @@ export const IconPicker: React.FC = () => {
         maxWidth: "420px",
         position: "relative",
         fontFamily: "inherit",
+        fontSize: "14px",
+        fontWeight: 400,
+        lineHeight: "18px",
       }}
     >
       <div
@@ -126,7 +129,7 @@ export const IconPicker: React.FC = () => {
           width: "unset",
         }}
       >
-        {selected ? <Icon name={selected} size={40} /> : null}
+        {selected ? <Icon name={selected} size={24} /> : null}
         <input
           id="icon-picker-search"
           type="text"
@@ -155,7 +158,7 @@ export const IconPicker: React.FC = () => {
             border: "none",
             outline: "none",
             flex: 1,
-            fontSize: "16px",
+            fontSize: "14px",
             backgroundColor: "transparent",
           }}
         />
@@ -215,7 +218,7 @@ export const IconPicker: React.FC = () => {
                   alignItems: "center",
                 }}
               >
-                <Icon name={name} size={40} />
+                <Icon name={name} size={24} />
                 <span>{name}</span>
               </div>
             ))
