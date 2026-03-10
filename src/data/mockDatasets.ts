@@ -95,7 +95,7 @@ export const datasetDefinitions: DatasetDefinition[] = [
   },
   {
     datasetKey: "stats",
-    label: "Stats",
+    label: "Player Stats",
     description: "Passing leaders dataset with server-like sorting and search.",
     columns: statsColumns,
     rows: buildRows(

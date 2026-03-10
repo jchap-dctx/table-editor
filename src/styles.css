@@ -101,6 +101,9 @@ pre {
 
 .app-shell,
 .hero,
+.prototype-banner,
+.landing-panel,
+.panel-map,
 .workspace,
 .workspace-grid,
 .panel,
@@ -110,6 +113,73 @@ pre {
 .sheet-shell,
 .table-shell {
   min-width: 0;
+}
+
+.prototype-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+  padding: 0.7rem 1rem;
+  border-radius: 14px;
+  border: 1px solid rgba(168, 50, 31, 0.25);
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: var(--shadow);
+}
+
+.prototype-banner strong {
+  font-weight: 800;
+}
+
+.prototype-banner span {
+  color: var(--muted);
+}
+
+.mode-chip {
+  margin-left: auto;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-strong) !important;
+  font-weight: 700;
+}
+
+.landing-panel {
+  margin-bottom: 1.2rem;
+}
+
+.landing-content {
+  display: grid;
+  gap: 1rem;
+  padding: 1.25rem;
+}
+
+.landing-content h2 {
+  margin: 0;
+}
+
+.landing-grid {
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.landing-card {
+  padding: 0.85rem 0.95rem;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.landing-card h3,
+.landing-card p {
+  margin: 0;
+}
+
+.landing-card p {
+  margin-top: 0.45rem;
+  color: var(--muted);
 }
 
 .hero {
@@ -170,6 +240,55 @@ pre {
 .workspace {
   display: grid;
   gap: 1.25rem;
+}
+
+.panel-map {
+  padding: 1rem 1.25rem;
+}
+
+.panel-map-grid {
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.panel-map-grid h3,
+.panel-map-grid p {
+  margin: 0;
+}
+
+.guided-panel {
+  padding: 1rem 1.25rem;
+}
+
+.guided-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1.4fr 1fr;
+}
+
+.guided-grid h3 {
+  margin: 0;
+}
+
+.guided-steps {
+  margin: 0.55rem 0 0;
+  padding-left: 1.15rem;
+  color: var(--muted);
+}
+
+.guided-steps li + li {
+  margin-top: 0.35rem;
+}
+
+.quick-actions {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.quick-actions button {
+  width: 100%;
+  text-align: left;
 }
 
 .workspace-grid {
@@ -538,6 +657,12 @@ pre {
 }
 
 @media (max-width: 1080px) {
+  .landing-grid,
+  .panel-map-grid,
+  .guided-grid {
+    grid-template-columns: 1fr;
+  }
+
   .workspace-grid {
     grid-template-columns: 1fr;
   }
@@ -551,6 +676,14 @@ pre {
 @media (max-width: 720px) {
   .app-shell {
     padding: 1rem;
+  }
+
+  .prototype-banner {
+    align-items: flex-start;
+  }
+
+  .mode-chip {
+    margin-left: 0;
   }
 
   .field-grid.two-up,

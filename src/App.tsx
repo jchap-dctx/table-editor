@@ -44,6 +44,7 @@ function buildDatasetContract(datasetKey: string, response?: DatasetResponse): T
 
 export default function App() {
   const [mode, setMode] = useState<Mode>("inline");
+  const [showLanding, setShowLanding] = useState(true);
   const [inlineDraft, setInlineDraft] = useState<TableContract>(() => buildDefaultInlineContract());
   const [savedInlineContract, setSavedInlineContract] = useState<TableContract>(() => buildDefaultInlineContract());
   const [datasetKey, setDatasetKey] = useState<string>(datasetDefinitions[0].datasetKey);
@@ -54,6 +55,28 @@ export default function App() {
   const [datasetSortBy, setDatasetSortBy] = useState<string | undefined>(undefined);
   const [datasetSortDirection, setDatasetSortDirection] = useState<"asc" | "desc" | undefined>(undefined);
   const [datasetSearch, setDatasetSearch] = useState("");
+
+  function resetDatasetQueryState() {
+    setDatasetPage(1);
+    setDatasetSortBy(undefined);
+    setDatasetSortDirection(undefined);
+    setDatasetSearch("");
+  }
+
+  function loadSampleInlineTable() {
+    const sample = buildDefaultInlineContract();
+    setMode("inline");
+    setInlineDraft(sample);
+    setSavedInlineContract(sample);
+    setShowLanding(false);
+  }
+
+  function loadDatasetPreset(nextDatasetKey: string) {
+    setMode("dataset");
+    setDatasetKey(nextDatasetKey);
+    resetDatasetQueryState();
+    setShowLanding(false);
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -103,6 +126,51 @@ export default function App() {
 
   return (
     <div className="app-shell">
+      <div className="prototype-banner">
+        <strong>TableBlock Prototype</strong>
+        <span>TableBlock Prototype – Demonstrates editor workflow and shared DataTable rendering.</span>
+        <span className="mode-chip">Current mode: {mode === "inline" ? "Inline Mode" : "Dataset Mode"}</span>
+      </div>
+
+      {showLanding ? (
+        <section className="panel landing-panel">
+          <div className="landing-content">
+            <p className="eyebrow">Welcome</p>
+            <h2>Demo Guide: TableBlock editor + shared renderer</h2>
+            <p className="muted">
+              This prototype demonstrates the core product workflow for a sports media table system. Use this screen as
+              the opening context before diving into the interactive demo.
+            </p>
+            <div className="landing-grid">
+              <article className="landing-card">
+                <h3>Inline Mode</h3>
+                <p>
+                  Editors create and edit rows directly, configure columns, paste from Sheets/Excel, and preview changes
+                  instantly.
+                </p>
+              </article>
+              <article className="landing-card">
+                <h3>Dataset Mode</h3>
+                <p>
+                  The app simulates API-backed tables with pagination, sorting, and optional search using realistic sports
+                  datasets.
+                </p>
+              </article>
+              <article className="landing-card">
+                <h3>What this validates</h3>
+                <p>
+                  One canonical JSON contract can support both authoring paths while a single shared DataTable renderer
+                  handles presentation.
+                </p>
+              </article>
+            </div>
+            <button type="button" className="primary" onClick={() => setShowLanding(false)}>
+              Start demo
+            </button>
+          </div>
+        </section>
+      ) : null}
+
       <header className="hero">
         <div>
           <p className="eyebrow">Prototype</p>
@@ -123,6 +191,56 @@ export default function App() {
       </header>
 
       <main className="workspace">
+        <section className="panel panel-map">
+          <div className="panel-map-grid">
+            <div>
+              <p className="eyebrow">1</p>
+              <h3>Table Editor Panel</h3>
+              <p className="muted">Inline authoring tools or dataset controls depending on selected mode.</p>
+            </div>
+            <div>
+              <p className="eyebrow">2</p>
+              <h3>Rendered Table Preview</h3>
+              <p className="muted">Shared DataTable output used by both inline and dataset sources.</p>
+            </div>
+            <div>
+              <p className="eyebrow">3</p>
+              <h3>JSON Payload Viewer</h3>
+              <p className="muted">Canonical contract/debug output for implementation discussions.</p>
+            </div>
+          </div>
+        </section>
+
+        <section className="panel guided-panel">
+          <div className="guided-grid">
+            <div>
+              <p className="eyebrow">How To Use</p>
+              <h3>2-3 minute review flow</h3>
+              <ol className="guided-steps">
+                <li>Create or paste an Inline table.</li>
+                <li>Inspect the generated JSON contract.</li>
+                <li>Switch to Dataset mode.</li>
+                <li>Load a large dataset and test sorting/pagination.</li>
+                <li>Confirm both modes share the same DataTable behavior.</li>
+              </ol>
+            </div>
+            <div>
+              <p className="eyebrow">Quick Actions</p>
+              <div className="quick-actions">
+                <button type="button" onClick={loadSampleInlineTable}>
+                  Load sample Inline table
+                </button>
+                <button type="button" onClick={() => loadDatasetPreset("program-rankings")}>
+                  Load Program Rankings dataset
+                </button>
+                <button type="button" onClick={() => loadDatasetPreset("roster")}>
+                  Load Roster dataset
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <div className="workspace-grid">
           {mode === "inline" ? (
             <TableEditor
@@ -152,10 +270,7 @@ export default function App() {
                       value={datasetKey}
                       onChange={(event) => {
                         setDatasetKey(event.target.value);
-                        setDatasetPage(1);
-                        setDatasetSortBy(undefined);
-                        setDatasetSortDirection(undefined);
-                        setDatasetSearch("");
+                        resetDatasetQueryState();
                       }}
                     >
                       {datasetDefinitions.map((dataset) => (

@@ -31,6 +31,19 @@ At runtime, the user switches between **Inline Mode** and **Dataset Mode**, and 
   - Horizontal scroll.
   - Pinned columns.
   - Loading/empty/error states.
+- Guided demo UX for quick internal review:
+  - Intro context panel.
+  - A short "How to use this prototype" walkthrough.
+  - Quick actions to load representative inline/dataset demo states.
+
+## Suggested review flow (2-3 minutes)
+
+1. Open the landing/intro content for context on Inline vs Dataset mode.
+2. In Inline mode, paste or edit a table in the editor panel.
+3. Review the shared DataTable preview behavior.
+4. Inspect the JSON payload/debug panel.
+5. Use quick actions or mode switch to Dataset mode.
+6. Load Program Rankings or Roster and validate shared rendering behavior at larger scale.
 
 ## Screenshots
 
@@ -118,13 +131,45 @@ Optional verification build:
 npm run build
 ```
 
+## Deployment
+
+This prototype is deployable as a static frontend on Vercel.
+
+### Vercel (recommended)
+
+1. Push this repository to GitHub/GitLab/Bitbucket.
+2. In Vercel, click **Add New Project** and import the repository.
+3. Vercel will detect the included [`vercel.json`](/Users/jchap/Repos/codex/dctx/vercel.json) and use:
+   - Install command: `npm install`
+   - Build command: `npm run build`
+   - Output directory: `dist`
+4. Click **Deploy**.
+
+No environment variables are required for this prototype.
+
+### Local parity check before deploy
+
+```bash
+npm install
+npm run build
+npm run dev
+```
+
+### Why this works on Vercel
+
+- The app is a Vite SPA that compiles to static assets in `dist/`.
+- Dataset behavior is mocked in frontend code (no backend runtime required).
+- There are no server-side dependencies (Express/Fastify/Node server runtime) required for deployment.
+
 ## Out of scope (intentional)
 
 - Authentication and authorization
 - Backend persistence or production API integration
 - CMS integration and publishing workflows
 - Production-grade styling/accessibility hardening
-- Advanced filtering, grouping, expandable rows, virtualization, export
+- CSV upload/import UI (paste is intentionally the MVP ingestion path)
+- Advanced filtering
+- Grouping, expandable rows, virtualization, export
 
 ## Relation to the future TableBlock feature
 
