@@ -1,53 +1,138 @@
 # TableBlock Prototype
 
-Prototype React app that demonstrates a `TableBlock` workflow for a sports media site:
+> **This repository contains a prototype and is not production implementation.**
 
-- Inline mode for spreadsheet-style authoring
-- Dataset mode for large, paginated tables
-- One shared frontend `DataTable` renderer used by both modes
+This project is a team-shareable prototype for validating the TableBlock product direction for a sports media platform.  
+It demonstrates how editors can author tables quickly in inline mode, how larger tables can run in dataset mode, and how both paths use one shared frontend renderer.
 
-## Run
+## Project overview
+
+The app contains three connected areas:
+
+- **Table Editor**: spreadsheet-like inline authoring for editorial workflows.
+- **Table Renderer**: one reusable `DataTable` component for rendering.
+- **Dataset Mode Simulation**: a mock API-style service for scalable table data.
+
+At runtime, the user switches between **Inline Mode** and **Dataset Mode**, and both modes flow through the same table renderer.
+
+## What this prototype demonstrates
+
+- Inline table authoring with add/remove/reorder columns, row editing, and paste from Sheets/Excel.
+- Column-level configuration for label, key, type, sorting/searching flags, visibility, pinning, alignment, and mobile priority.
+- Validation and inline guardrails:
+  - Unique column keys.
+  - Numeric validation for number columns.
+  - Warning guidance when tables exceed inline-friendly size.
+- Dataset-backed rendering using simulated query parameters (`datasetKey`, `page`, `sortBy`, `sortDirection`, `search`).
+- Shared rendering behaviors in one component:
+  - Sorting.
+  - Pagination.
+  - Sticky header.
+  - Horizontal scroll.
+  - Pinned columns.
+  - Loading/empty/error states.
+
+## Screenshots
+
+Add screenshots under `docs/screenshots/` and keep these filenames for consistent sharing:
+
+- `docs/screenshots/inline-mode-editor.png` (Inline editor with live preview)
+- `docs/screenshots/dataset-mode.png` (Dataset selector + paginated renderer)
+- `docs/screenshots/json-debug-panel.png` (Canonical JSON payload inspector)
+
+Markdown placeholders:
+
+```md
+![Inline mode editor](docs/screenshots/inline-mode-editor.png)
+![Dataset mode](docs/screenshots/dataset-mode.png)
+![JSON payload inspector](docs/screenshots/json-debug-panel.png)
+```
+
+## Tech stack
+
+- React
+- TypeScript
+- Vite
+- TanStack Table (`@tanstack/react-table`) for shared table rendering logic
+- PapaParse for spreadsheet-like paste parsing
+- Plain CSS for prototype UI
+
+## JSON contract
+
+The prototype uses a canonical `TableContract` shape in [`src/types/table.ts`](/Users/jchap/Repos/codex/dctx/src/types/table.ts).  
+This is the handoff boundary between authoring/data source concerns and rendering concerns.
+
+Core contract ideas:
+
+- `sourceType`: `"inline"` or `"dataset"`.
+- `columns`: canonical `TableColumn[]` metadata used by the renderer.
+- `rows`: inline row data when `sourceType = "inline"`.
+- `dataset`: dataset config when `sourceType = "dataset"`.
+- `display`: renderer behavior flags (`variant`, pagination, sorting, sticky header, horizontal scroll, pinned mobile columns).
+
+## TanStack usage
+
+The shared renderer lives in [`src/components/DataTable.tsx`](/Users/jchap/Repos/codex/dctx/src/components/DataTable.tsx) and uses TanStack Table for:
+
+- Column definitions generated from the canonical contract.
+- Local sorting/pagination in inline mode.
+- Manual sorting/pagination hooks in dataset mode.
+- Column pinning state (including mobile-priority pinned columns).
+
+This keeps rendering logic centralized while allowing different data-source strategies.
+
+## Repository structure
+
+- [`src/App.tsx`](/Users/jchap/Repos/codex/dctx/src/App.tsx): mode switching and orchestration
+- [`src/components/TableEditor.tsx`](/Users/jchap/Repos/codex/dctx/src/components/TableEditor.tsx): inline authoring experience
+- [`src/components/DataTable.tsx`](/Users/jchap/Repos/codex/dctx/src/components/DataTable.tsx): shared renderer (Inline + Dataset)
+- [`src/services/mockDatasetService.ts`](/Users/jchap/Repos/codex/dctx/src/services/mockDatasetService.ts): mock async dataset API behavior
+- [`src/data/mockDatasets.ts`](/Users/jchap/Repos/codex/dctx/src/data/mockDatasets.ts): sample datasets
+- [`src/utils/tableUtils.ts`](/Users/jchap/Repos/codex/dctx/src/utils/tableUtils.ts): parsing, validation, defaults, normalization
+- [`docs/screenshots/.gitkeep`](/Users/jchap/Repos/codex/dctx/docs/screenshots/.gitkeep): screenshot placeholder folder for team sharing
+
+## Setup instructions
+
+### Prerequisites
+
+- Node.js 20+ (tested with Node.js 22)
+- npm 10+
+
+### Install
 
 ```bash
 npm install
+```
+
+## Run locally
+
+```bash
 npm run dev
 ```
 
-Build for a production-like check:
+Then open the local Vite URL shown in terminal (typically `http://localhost:5173`).
+
+Optional verification build:
 
 ```bash
 npm run build
 ```
 
-## What the prototype demonstrates
+## Out of scope (intentional)
 
-- Editors can add, remove, reorder, and configure columns in an inline authoring UI.
-- Editors can add and remove rows, edit cells directly, and paste tabular data copied from Google Sheets or Excel.
-- Pasted data treats the first row as headers, infers column keys, and does simple text/number type inference.
-- Inline authoring surfaces validation errors and guardrails when a table exceeds 150 rows or 20 columns.
-- The same `DataTable` component renders both inline-authored data and dataset-backed data.
-- Dataset mode simulates `GET /api/table?datasetKey=...&page=...&pageSize=...&sortBy=...&sortDirection=...&search=...`.
-- Dataset mode demonstrates loading, empty, error, sorting, search, pagination, horizontal scroll, sticky headers, and pinned columns.
+- Authentication and authorization
+- Backend persistence or production API integration
+- CMS integration and publishing workflows
+- Production-grade styling/accessibility hardening
+- Advanced filtering, grouping, expandable rows, virtualization, export
 
-## Project structure
+## Relation to the future TableBlock feature
 
-- [`src/App.tsx`](/Users/jchap/Repos/codex/dctx/src/App.tsx): top-level mode switch, layout, and dataset orchestration
-- [`src/components/TableEditor.tsx`](/Users/jchap/Repos/codex/dctx/src/components/TableEditor.tsx): inline spreadsheet-like authoring UI
-- [`src/components/DataTable.tsx`](/Users/jchap/Repos/codex/dctx/src/components/DataTable.tsx): shared TanStack table renderer
-- [`src/services/mockDatasetService.ts`](/Users/jchap/Repos/codex/dctx/src/services/mockDatasetService.ts): async mock dataset fetch service
-- [`src/data/mockDatasets.ts`](/Users/jchap/Repos/codex/dctx/src/data/mockDatasets.ts): example sports datasets
-- [`src/utils/tableUtils.ts`](/Users/jchap/Repos/codex/dctx/src/utils/tableUtils.ts): contract defaults, paste parsing, validation, and normalization
+This prototype is a behavior-validation artifact, not the final implementation.  
+It is intended to de-risk future TableBlock development by validating:
 
-## Intentional non-goals
+- Authoring ergonomics in inline mode.
+- Scale handoff to dataset mode.
+- A stable contract and shared renderer strategy that can plug into a future CMS + backend stack.
 
-- Authentication
-- Backend persistence
-- CMS integration
-- Production styling or accessibility polish
-- Advanced filtering
-- Grouping, expandable rows, virtualization, exports, or CSV import
-
-## Notes
-
-- `PapaParse` is wired into the paste-import path so CSV import can be added later without changing the core parsing approach.
-- Local component state is used intentionally to keep the prototype readable and easy to review with product and engineering teams.
+In a production implementation, the same contract/renderer approach can be retained while replacing local state and mock services with persistent backend-backed workflows.

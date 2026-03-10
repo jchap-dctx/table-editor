@@ -1,3 +1,4 @@
+// This repository contains a prototype and is not production implementation.
 import { useEffect, useState } from "react";
 import { DataTable } from "./components/DataTable";
 import { JsonPanel } from "./components/JsonPanel";
