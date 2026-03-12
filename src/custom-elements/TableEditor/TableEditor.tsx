@@ -80,6 +80,7 @@ function syncRowsToColumns(rows: InlineTableRow[], columns: InlineTableColumn[])
 
 export function TableEditor() {
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [storedValue, setStoredValue] = useValue();
   const isDisabled = useIsDisabled();
 
@@ -89,6 +90,14 @@ export function TableEditor() {
   const [importMessage, setImportMessage] = useState<string>("Paste spreadsheet data or upload a .csv file.");
   const [firstRowIsHeader, setFirstRowIsHeader] = useState(true);
   const [rawPasteText, setRawPasteText] = useState("");
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [showPasteArea, setShowPasteArea] = useState(false);
+  const [lastImport, setLastImport] = useState<{
+    source: "paste" | "csv";
+    rowCount: number;
+    columnCount: number;
+    importedAt: string;
+  } | null>(null);
   const [savedMessage, setSavedMessage] = useState("");
   const [payload, setPayload] = useState<InlineTablePayloadV1>(createEmptyPayload());
 
@@ -260,6 +269,12 @@ export function TableEditor() {
 
     setImportErrors([]);
     setImportMessage(`Imported ${normalized.rows.length} rows and ${normalized.columns.length} columns from ${source}.`);
+    setLastImport({
+      source,
+      rowCount: normalized.rows.length,
+      columnCount: normalized.columns.length,
+      importedAt: new Date().toLocaleTimeString(),
+    });
   }
 
   function handlePasteFromTextarea() {
@@ -305,6 +320,7 @@ export function TableEditor() {
 
   async function handleDrop(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
+    setIsDragOver(false);
     if (isDisabled) {
       return;
     }
@@ -326,6 +342,17 @@ export function TableEditor() {
 
   function preventDropDefaults(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
+  }
+
+  function handleDragEnter(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    if (!isDisabled) {
+      setIsDragOver(true);
+    }
+  }
+
+  function handleDragLeave() {
+    setIsDragOver(false);
   }
 
   function savePayload() {
@@ -412,43 +439,104 @@ export function TableEditor() {
                 }
               />
             </label>
-            <label className="table-editor-inline-checkbox">
-              <input
-                type="checkbox"
-                checked={firstRowIsHeader}
-                onChange={(event) => setFirstRowIsHeader(event.target.checked)}
-              />
-              <span>Treat first imported row as header</span>
-            </label>
+            <div className="table-editor-import-settings">
+              <label className="table-editor-inline-checkbox">
+                <input
+                  type="checkbox"
+                  checked={firstRowIsHeader}
+                  onChange={(event) => setFirstRowIsHeader(event.target.checked)}
+                />
+                <span>Treat first imported row as header</span>
+              </label>
+            </div>
           </div>
 
           <div className="table-editor-import-grid">
-            <label>
-              <span>Paste from Google Sheets / Excel</span>
-              <textarea
-                rows={4}
-                value={rawPasteText}
-                onPaste={handlePaste}
-                onChange={(event) => setRawPasteText(event.target.value)}
-                placeholder="Paste a tabular selection here"
-              />
-            </label>
-            <div className="table-editor-import-actions">
-              <button type="button" onClick={handlePasteFromTextarea}>
-                Import pasted text
+            <div className="table-editor-upload-card">
+              <p className="table-editor-upload-title">Drop CSV file here</p>
+              <p className="muted table-editor-upload-subtitle">or click to upload</p>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="table-editor-upload-cta"
+              >
+                Click to upload
               </button>
-              <label className="table-editor-file-picker">
-                <span>Upload .csv</span>
-                <input type="file" accept=".csv,text/csv" onChange={onCsvSelected} />
-              </label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv,text/csv"
+                onChange={onCsvSelected}
+                className="table-editor-hidden-file-input"
+              />
+              <div
+                className={`table-editor-dropzone ${isDragOver ? "is-drag-over" : ""}`}
+                onDragOver={preventDropDefaults}
+                onDragEnter={handleDragEnter}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+              >
+                Drag and drop a .csv file here
+              </div>
             </div>
-            <div
-              className="table-editor-dropzone"
-              onDragOver={preventDropDefaults}
-              onDragEnter={preventDropDefaults}
-              onDrop={handleDrop}
-            >
-              Drag and drop a .csv file here
+
+            <div className="table-editor-import-actions">
+              <button type="button" onClick={() => setShowPasteArea((current) => !current)}>
+                {showPasteArea ? "Hide paste input" : "Paste from Google Sheets/Excel instead"}
+              </button>
+            </div>
+
+            {showPasteArea ? (
+              <div className="table-editor-paste-panel">
+                <label>
+                  <span>Paste tabular text</span>
+                  <textarea
+                    rows={5}
+                    value={rawPasteText}
+                    onPaste={handlePaste}
+                    onChange={(event) => setRawPasteText(event.target.value)}
+                    placeholder="Paste table data from Google Sheets or Excel"
+                  />
+                </label>
+                <button type="button" onClick={handlePasteFromTextarea}>
+                  Import pasted text
+                </button>
+              </div>
+            ) : null}
+
+            {lastImport ? (
+              <div className="table-editor-ok table-editor-import-summary">
+                Loaded successfully from <strong>{lastImport.source.toUpperCase()}</strong> at {lastImport.importedAt}.{" "}
+                {lastImport.rowCount} rows and {lastImport.columnCount} columns are ready.
+              </div>
+            ) : (
+              <div className="table-editor-import-summary muted">
+                Import a CSV or paste spreadsheet data to generate the table automatically.
+              </div>
+            )}
+
+            <div className="table-editor-inline-preview">
+              <p className="table-editor-preview-label">Quick preview</p>
+              <div className="table-editor-table-scroll">
+                <table className="table-editor-preview-table">
+                  <thead>
+                    <tr>
+                      {payload.columns.slice(0, 6).map((column) => (
+                        <th key={`import-preview-${column.key}`}>{column.label}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {payload.rows.slice(0, 3).map((row) => (
+                      <tr key={`import-preview-row-${row.id}`}>
+                        {payload.columns.slice(0, 6).map((column) => (
+                          <td key={`import-preview-${row.id}-${column.key}`}>{toInputValue(row[column.key])}</td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
             <p className="muted">{importMessage}</p>
           </div>

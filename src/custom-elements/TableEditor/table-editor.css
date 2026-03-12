@@ -102,7 +102,7 @@
 
 .table-editor-import-grid {
   display: grid;
-  gap: 10px;
+  gap: 12px;
   margin-top: 12px;
 }
 
@@ -113,28 +113,77 @@
   align-items: center;
 }
 
-.table-editor-file-picker {
-  display: inline-flex;
-  gap: 8px;
+.table-editor-import-settings {
+  display: flex;
   align-items: center;
-  border: 1px solid #c9d5e5;
-  border-radius: 8px;
-  padding: 7px 10px;
-  background: #f8fbff;
 }
 
-.table-editor-file-picker input[type="file"] {
-  border: 0;
-  padding: 0;
-  background: transparent;
+.table-editor-upload-card {
+  border: 1px solid #d9e2ee;
+  background: #f8fbff;
+  border-radius: 12px;
+  padding: 18px;
+  text-align: center;
+  display: grid;
+  gap: 8px;
+}
+
+.table-editor-upload-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.table-editor-upload-subtitle {
+  margin: 0;
+}
+
+.table-editor-upload-cta {
+  justify-self: center;
+}
+
+.table-editor-hidden-file-input {
+  display: none;
 }
 
 .table-editor-dropzone {
   border: 1px dashed #97b0cd;
   border-radius: 8px;
-  padding: 10px;
+  padding: 28px 10px;
   color: #46627f;
   background: #f7fbff;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.table-editor-dropzone.is-drag-over {
+  border-color: #0057b8;
+  background: #eef5ff;
+}
+
+.table-editor-paste-panel {
+  border: 1px solid #dce5f1;
+  border-radius: 10px;
+  padding: 10px;
+  display: grid;
+  gap: 10px;
+  background: #fbfdff;
+}
+
+.table-editor-import-summary {
+  margin: 0;
+}
+
+.table-editor-inline-preview {
+  display: grid;
+  gap: 8px;
+}
+
+.table-editor-preview-label {
+  margin: 0;
+  font-size: 12px;
+  color: #4d6682;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
 .table-editor-section-header {
