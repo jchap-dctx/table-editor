@@ -5,7 +5,14 @@ type Props = Readonly<{
 }>;
 
 export const EnsureKontentAsParent: FC<Props> = (props) => {
-  if (window === window.top) {
+  const isEmbeddedInKontent = window !== window.top;
+  const isLocalDevPreviewEnabled =
+    import.meta.env.DEV &&
+    (new URLSearchParams(window.location.search).get("localPreview") === "1" ||
+      window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1");
+
+  if (!isEmbeddedInKontent && !isLocalDevPreviewEnabled) {
     return (
       <h1 style={{ lineHeight: 1.5 }}>
         This can only be rendered as a custom element in the Kontent.ai app. See{" "}
