@@ -26,6 +26,15 @@
   cursor: not-allowed;
 }
 
+.table-editor-root button:focus-visible,
+.table-editor-root input:focus-visible,
+.table-editor-root select:focus-visible,
+.table-editor-root textarea:focus-visible,
+.table-editor-dropzone:focus-visible {
+  outline: 3px solid #9bc2ff;
+  outline-offset: 1px;
+}
+
 .table-editor-root input,
 .table-editor-root select,
 .table-editor-root textarea {
@@ -160,6 +169,11 @@
   background: #eef5ff;
 }
 
+.table-editor-dropzone[aria-disabled="true"] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .table-editor-paste-panel {
   border: 1px solid #dce5f1;
   border-radius: 10px;
@@ -184,6 +198,11 @@
   color: #4d6682;
   text-transform: uppercase;
   letter-spacing: 0.02em;
+}
+
+.table-editor-empty-preview {
+  color: #5a6f88;
+  font-style: italic;
 }
 
 .table-editor-section-header {

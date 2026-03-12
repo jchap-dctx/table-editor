@@ -344,6 +344,12 @@ export function TableEditor() {
     event.preventDefault();
   }
 
+  function openFilePicker() {
+    if (!isDisabled) {
+      fileInputRef.current?.click();
+    }
+  }
+
   function handleDragEnter(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
     if (!isDisabled) {
@@ -457,7 +463,7 @@ export function TableEditor() {
               <p className="muted table-editor-upload-subtitle">or click to upload</p>
               <button
                 type="button"
-                onClick={() => fileInputRef.current?.click()}
+                onClick={openFilePicker}
                 className="table-editor-upload-cta"
               >
                 Click to upload
@@ -475,6 +481,16 @@ export function TableEditor() {
                 onDragEnter={handleDragEnter}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    openFilePicker();
+                  }
+                }}
+                role="button"
+                tabIndex={isDisabled ? -1 : 0}
+                aria-disabled={isDisabled}
+                aria-label="Upload CSV file by click or drag and drop"
               >
                 Drag and drop a .csv file here
               </div>
@@ -498,14 +514,14 @@ export function TableEditor() {
                     placeholder="Paste table data from Google Sheets or Excel"
                   />
                 </label>
-                <button type="button" onClick={handlePasteFromTextarea}>
+                <button type="button" onClick={handlePasteFromTextarea} disabled={!rawPasteText.trim()}>
                   Import pasted text
                 </button>
               </div>
             ) : null}
 
             {lastImport ? (
-              <div className="table-editor-ok table-editor-import-summary">
+              <div className="table-editor-ok table-editor-import-summary" role="status" aria-live="polite">
                 Loaded successfully from <strong>{lastImport.source.toUpperCase()}</strong> at {lastImport.importedAt}.{" "}
                 {lastImport.rowCount} rows and {lastImport.columnCount} columns are ready.
               </div>
@@ -527,13 +543,21 @@ export function TableEditor() {
                     </tr>
                   </thead>
                   <tbody>
-                    {payload.rows.slice(0, 3).map((row) => (
-                      <tr key={`import-preview-row-${row.id}`}>
-                        {payload.columns.slice(0, 6).map((column) => (
-                          <td key={`import-preview-${row.id}-${column.key}`}>{toInputValue(row[column.key])}</td>
-                        ))}
+                    {payload.rows.length === 0 || payload.columns.length === 0 ? (
+                      <tr>
+                        <td colSpan={Math.max(payload.columns.slice(0, 6).length, 1)} className="table-editor-empty-preview">
+                          No table data loaded yet. Import a CSV or paste spreadsheet data to preview rows here.
+                        </td>
                       </tr>
-                    ))}
+                    ) : (
+                      payload.rows.slice(0, 3).map((row) => (
+                        <tr key={`import-preview-row-${row.id}`}>
+                          {payload.columns.slice(0, 6).map((column) => (
+                            <td key={`import-preview-${row.id}-${column.key}`}>{toInputValue(row[column.key])}</td>
+                          ))}
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -788,7 +812,7 @@ export function TableEditor() {
           ))}
 
           {importErrors.length > 0 ? (
-            <div className="table-editor-warn">
+            <div className="table-editor-warn" role="alert">
               <p>Import issues:</p>
               <ul>
                 {importErrors.map((error) => (
