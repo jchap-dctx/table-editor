@@ -1,0 +1,261 @@
+.table-editor-root {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  font-size: 14px;
+  color: #15334e;
+}
+
+.table-editor-root button {
+  border-radius: 8px;
+  border: 1px solid #c9d5e5;
+  background: #fff;
+  color: #15334e;
+  font-weight: 600;
+  padding: 8px 12px;
+}
+
+.table-editor-root button.primary {
+  background: #0057b8;
+  border-color: #0057b8;
+  color: #fff;
+}
+
+.table-editor-root button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.table-editor-root input,
+.table-editor-root select,
+.table-editor-root textarea {
+  width: 100%;
+  border: 1px solid #c9d5e5;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #fff;
+}
+
+.table-editor-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid #d9e2ee;
+  background: #fff;
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.table-editor-header h1 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.table-editor-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.table-editor-status {
+  margin: 0;
+}
+
+.table-editor-fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.table-editor-panel {
+  border: 1px solid #d9e2ee;
+  background: #fff;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.table-editor-panel h2 {
+  margin: 0 0 10px;
+}
+
+.table-editor-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.table-editor-grid.two-up {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.table-editor-inline-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.table-editor-inline-checkbox input {
+  width: auto;
+}
+
+.table-editor-import-grid {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.table-editor-import-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.table-editor-file-picker {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid #c9d5e5;
+  border-radius: 8px;
+  padding: 7px 10px;
+  background: #f8fbff;
+}
+
+.table-editor-file-picker input[type="file"] {
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.table-editor-dropzone {
+  border: 1px dashed #97b0cd;
+  border-radius: 8px;
+  padding: 10px;
+  color: #46627f;
+  background: #f7fbff;
+}
+
+.table-editor-section-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.table-editor-column-list {
+  display: grid;
+  gap: 10px;
+}
+
+.table-editor-column-card {
+  border: 1px solid #dce5f1;
+  border-radius: 10px;
+  padding: 10px;
+  display: grid;
+  gap: 10px;
+  background: #fbfdff;
+}
+
+.table-editor-column-row {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.table-editor-column-row.compact {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.table-editor-toggle-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.table-editor-column-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.table-editor-table-scroll {
+  overflow: auto;
+  border: 1px solid #dce5f1;
+  border-radius: 8px;
+}
+
+.table-editor-grid-table,
+.table-editor-preview-table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+}
+
+.table-editor-grid-table th,
+.table-editor-grid-table td,
+.table-editor-preview-table th,
+.table-editor-preview-table td {
+  border-bottom: 1px solid #e4ebf5;
+  padding: 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.table-editor-grid-table th,
+.table-editor-preview-table th {
+  position: sticky;
+  top: 0;
+  background: #f3f7fc;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.table-editor-warn {
+  border: 1px solid #f1c899;
+  background: #fff7ee;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.table-editor-ok {
+  border: 1px solid #bfe6d0;
+  background: #effaf3;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.table-editor-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.eyebrow {
+  margin: 0 0 4px;
+  color: #2f5f8c;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+}
+
+.muted {
+  color: #4d6682;
+}
+
+@media (max-width: 1024px) {
+  .table-editor-grid.two-up,
+  .table-editor-column-row,
+  .table-editor-column-row.compact,
+  .table-editor-meta-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .table-editor-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

@@ -9,7 +9,7 @@ import { CustomElementContext } from "./context";
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <EnsureKontentAsParent>
-      <CustomElementContext>
+      <CustomElementContext height="dynamic">
         <BrowserRouter basename="/custom-elements">
           <App />
         </BrowserRouter>
