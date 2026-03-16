@@ -403,6 +403,8 @@ export function TableEditor() {
       setImportErrors(["Imported data did not contain parseable tabular values."]);
       setLastImport(null);
       setLastImportStatus("idle");
+      setPayload(createEmptyPayload());
+      setHasUserChanges(false);
       return;
     }
 
@@ -415,12 +417,6 @@ export function TableEditor() {
     });
     const nextScale = estimatePayloadScale(nextPayload);
 
-    updatePayloadState((current) => ({
-      ...nextPayload,
-      tableId: current.tableId || nextPayload.tableId,
-      metadata: current.metadata,
-    }));
-
     setLastImport({
       source,
       rowCount: normalized.rows.length,
@@ -428,15 +424,23 @@ export function TableEditor() {
       importedAt,
     });
     setSelectedColumnIndex(0);
+    setImportErrors([]);
 
     if (nextScale.exceedsInlineLimit) {
+      setPayload(createEmptyPayload());
       setStoredValue(null);
-      setImportErrors([]);
+      setHasUserChanges(false);
       setLastImportStatus("too-large");
       return;
     }
 
-    setImportErrors([]);
+    setPayload({
+      ...nextPayload,
+      tableId: payload.tableId || nextPayload.tableId,
+      metadata: payload.metadata,
+    });
+    setStoredValue(JSON.stringify(nextPayload));
+    setHasUserChanges(false);
     setLastImportStatus("success");
   }
 
@@ -632,7 +636,7 @@ export function TableEditor() {
           ))}
         </div>
       ) : null}
-      {scale.exceedsInlineLimit ? (
+      {lastImportStatus === "too-large" ? (
         <div className="table-editor-warn table-editor-status">
           <p>
             This table is too large for Inline mode.

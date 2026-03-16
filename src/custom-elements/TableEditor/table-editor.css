@@ -561,7 +561,7 @@
 }
 
 .table-editor-empty-preview-message {
-  padding: 20px 24px 24px;
+  padding: 12px 0 0;
   color: #5a6d82;
   font-size: 16px;
   line-height: 1.5;
@@ -574,6 +574,8 @@
   border-radius: 0;
   background: transparent;
   overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
 }
 
 .table-editor-module-preview {

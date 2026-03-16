@@ -166,7 +166,16 @@ export function TableEditorPreview() {
     }
 
     try {
-      const draft = JSON.parse(serializedDraft) as { payload?: InlineTablePayloadV1 };
+      const draft = JSON.parse(serializedDraft) as {
+        payload?: InlineTablePayloadV1;
+        lastImportStatus?: "idle" | "success" | "too-large";
+      };
+
+      if (draft.lastImportStatus === "too-large") {
+        setDraftFallbackValue(null);
+        return;
+      }
+
       setDraftFallbackValue(draft.payload ? JSON.stringify(draft.payload) : null);
     } catch (error) {
       console.warn("Unable to restore preview draft state.", error);
@@ -183,8 +192,11 @@ export function TableEditorPreview() {
     CustomElement.setHeight(Math.ceil(nextHeight + 24));
   }, [caption, ctaLabel, emptyStateMessage, pageSize, payload, title, variantClassName, watchedElements]);
 
+  const hasRows = payload.columns.length > 0 && payload.rows.length > 0;
+
   return (
     <div className="table-editor-root table-editor-preview-page" ref={rootRef}>
+      {hasRows ? (
       <section className={`table-editor-module-preview ${variantClassName}`}>
         <div className="table-editor-module-frame">
           {title || caption ? (
@@ -193,8 +205,7 @@ export function TableEditorPreview() {
               {caption ? <p className="table-editor-module-caption">{caption}</p> : null}
             </div>
           ) : null}
-          {payload.columns.length > 0 && payload.rows.length > 0 ? (
-            <div className="table-editor-table-scroll table-editor-rendered-preview">
+            <div className="table-editor-rendered-preview">
               <table className="table-editor-preview-table table-editor-rendered-table">
                 <colgroup>
                   {payload.columns.map((column) => (
@@ -234,11 +245,6 @@ export function TableEditorPreview() {
                 </tbody>
               </table>
             </div>
-          ) : (
-            <div className="table-editor-empty-preview-message">
-              {emptyStateMessage}
-            </div>
-          )}
           {ctaLabel ? (
             <div className="table-editor-module-footer">
               <a
@@ -259,6 +265,9 @@ export function TableEditorPreview() {
           ) : null}
         </div>
       </section>
+      ) : (
+        <div className="table-editor-empty-preview-message">{emptyStateMessage}</div>
+      )}
     </div>
   );
 }
