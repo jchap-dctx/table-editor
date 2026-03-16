@@ -108,6 +108,10 @@ export function TableEditor() {
   const [isDragOver, setIsDragOver] = useState(false);
   const [showPasteArea, setShowPasteArea] = useState(false);
   const [draggedColumnIndex, setDraggedColumnIndex] = useState<number | null>(null);
+  const [dropIndicator, setDropIndicator] = useState<{
+    targetIndex: number;
+    placement: "before" | "after";
+  } | null>(null);
   const [selectedColumnIndex, setSelectedColumnIndex] = useState<number>(0);
   const [lastImport, setLastImport] = useState<{
     source: "paste" | "csv";
@@ -272,7 +276,16 @@ export function TableEditor() {
     setSelectedColumnIndex(nextIndex);
   }
 
-  function reorderColumns(sourceIndex: number, destinationIndex: number) {
+  function reorderColumns(
+    sourceIndex: number,
+    targetIndex: number,
+    placement: "before" | "after",
+  ) {
+    let destinationIndex = placement === "after" ? targetIndex + 1 : targetIndex;
+    if (sourceIndex < destinationIndex) {
+      destinationIndex -= 1;
+    }
+
     if (sourceIndex === destinationIndex) {
       return;
     }
@@ -638,24 +651,48 @@ export function TableEditor() {
                 <thead>
                   <tr>
                     <th className="table-editor-row-index-head">#</th>
-                    {payload.columns.map((column, index) => (
+                {payload.columns.map((column, index) => (
                       <th
                         key={column.key}
                         draggable
                         onDragStart={() => setDraggedColumnIndex(index)}
-                        onDragOver={(event) => event.preventDefault()}
+                        onDragOver={(event) => {
+                          event.preventDefault();
+                          const bounds = event.currentTarget.getBoundingClientRect();
+                          const placement =
+                            event.clientX - bounds.left < bounds.width / 2 ? "before" : "after";
+                          setDropIndicator({ targetIndex: index, placement });
+                        }}
+                        onDragLeave={() => setDropIndicator(null)}
                         onDrop={() => {
-                          if (draggedColumnIndex === null) {
+                          if (draggedColumnIndex === null || dropIndicator === null) {
                             return;
                           }
-                          reorderColumns(draggedColumnIndex, index);
+                          reorderColumns(
+                            draggedColumnIndex,
+                            dropIndicator.targetIndex,
+                            dropIndicator.placement,
+                          );
                           setDraggedColumnIndex(null);
+                          setDropIndicator(null);
                         }}
-                        onDragEnd={() => setDraggedColumnIndex(null)}
+                        onDragEnd={() => {
+                          setDraggedColumnIndex(null);
+                          setDropIndicator(null);
+                        }}
                         className={
-                          index === selectedColumnIndex
-                            ? "table-editor-column-head is-selected"
-                            : "table-editor-column-head"
+                          [
+                            "table-editor-column-head",
+                            index === selectedColumnIndex ? "is-selected" : "",
+                            dropIndicator?.targetIndex === index && dropIndicator.placement === "before"
+                              ? "is-drop-before"
+                              : "",
+                            dropIndicator?.targetIndex === index && dropIndicator.placement === "after"
+                              ? "is-drop-after"
+                              : "",
+                          ]
+                            .filter(Boolean)
+                            .join(" ")
                         }
                       >
                         <button

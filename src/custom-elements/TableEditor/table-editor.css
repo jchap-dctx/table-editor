@@ -313,10 +313,32 @@
 .table-editor-column-head {
   min-width: 180px;
   padding: 0;
+  position: relative;
 }
 
 .table-editor-column-head.is-selected {
   box-shadow: inset 0 -3px 0 var(--table-accent);
+}
+
+.table-editor-column-head.is-drop-before::before,
+.table-editor-column-head.is-drop-after::after {
+  content: "";
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  width: 4px;
+  border-radius: 999px;
+  background: var(--table-accent);
+  box-shadow: 0 0 0 3px rgba(45, 108, 223, 0.14);
+  z-index: 3;
+}
+
+.table-editor-column-head.is-drop-before::before {
+  left: -2px;
+}
+
+.table-editor-column-head.is-drop-after::after {
+  right: -2px;
 }
 
 .table-editor-column-surface {
@@ -356,6 +378,30 @@
 
 .table-editor-live-grid tbody tr:nth-child(even) td {
   background: #fcfdff;
+}
+
+.table-editor-live-grid tbody tr:hover td {
+  background: #f7fbff;
+}
+
+.table-editor-live-grid td input,
+.table-editor-live-grid td select {
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 8px;
+  padding: 10px 12px;
+  box-shadow: none;
+}
+
+.table-editor-live-grid td input:hover,
+.table-editor-live-grid td select:hover {
+  background: #f5f8fc;
+}
+
+.table-editor-live-grid td input:focus,
+.table-editor-live-grid td select:focus {
+  background: #ffffff;
+  border-color: var(--table-line-strong);
 }
 
 .table-editor-column-sidebar {
