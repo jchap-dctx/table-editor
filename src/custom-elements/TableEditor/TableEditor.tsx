@@ -46,6 +46,25 @@ function toInputValue(value: InlineCellValue): string {
   return String(value);
 }
 
+function formatPreviewCell(column: InlineTableColumn, value: InlineCellValue): string {
+  if (value === null || value === undefined || value === "") {
+    return "—";
+  }
+
+  if (column.type === "boolean") {
+    return value === true ? "Yes" : value === false ? "No" : String(value);
+  }
+
+  if (column.type === "date") {
+    const parsed = new Date(String(value));
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toLocaleDateString();
+    }
+  }
+
+  return String(value);
+}
+
 function coerceInputByType(type: InlineColumnType, nextValue: string): InlineCellValue {
   if (!nextValue) {
     return null;
@@ -471,6 +490,7 @@ export function TableEditor() {
     if (column.type === "boolean") {
       return (
         <select
+          className="table-editor-cell-input"
           value={
             value === null
               ? ""
@@ -491,6 +511,7 @@ export function TableEditor() {
 
     return (
       <input
+        className="table-editor-cell-input"
         type={
           column.type === "number"
             ? "text"
@@ -502,6 +523,7 @@ export function TableEditor() {
         }
         value={toInputValue(value)}
         onChange={(event) => updateCell(row.id, column, event.target.value)}
+        placeholder={column.label}
       />
     );
   }
@@ -699,20 +721,24 @@ export function TableEditor() {
                           type="button"
                           className="table-editor-column-surface"
                           onClick={() => setSelectedColumnIndex(index)}
+                          aria-pressed={index === selectedColumnIndex}
                         >
-                          <span className="table-editor-column-drag" aria-hidden="true">
-                            ≡
-                          </span>
-                          <input
-                            value={column.label}
-                            onChange={(event) => updateColumn(index, { label: event.target.value })}
-                            onClick={(event) => event.stopPropagation()}
-                            className="table-editor-column-label-input"
-                            aria-label={`Column ${index + 1} label`}
-                          />
-                          <span className="table-editor-column-meta">
-                            {column.type} · {column.key}
-                          </span>
+                          <div className="table-editor-column-topline">
+                            <span className="table-editor-column-drag" aria-hidden="true">
+                              ≡
+                            </span>
+                            <span className="table-editor-column-type-pill">{column.type}</span>
+                          </div>
+                          <div className="table-editor-column-copy">
+                            <input
+                              value={column.label}
+                              onChange={(event) => updateColumn(index, { label: event.target.value })}
+                              onClick={(event) => event.stopPropagation()}
+                              className="table-editor-column-label-input"
+                              aria-label={`Column ${index + 1} label`}
+                            />
+                            <span className="table-editor-column-meta">{column.key}</span>
+                          </div>
                         </button>
                       </th>
                     ))}
@@ -898,8 +924,15 @@ export function TableEditor() {
                 normalizedPreviewPayload.rows.slice(0, 8).map((row) => (
                   <tr key={`rendered-${row.id}`}>
                     {normalizedPreviewPayload.columns.map((column) => (
-                      <td key={`rendered-${row.id}-${column.key}`}>
-                        {toInputValue(row[column.key])}
+                        <td key={`rendered-${row.id}-${column.key}`}>
+                        <div className="table-editor-rendered-cell">
+                          <span className="table-editor-rendered-cell-primary">
+                            {formatPreviewCell(column, row[column.key])}
+                          </span>
+                          <span className="table-editor-rendered-cell-secondary">
+                            {column.key}
+                          </span>
+                        </div>
                       </td>
                     ))}
                   </tr>
