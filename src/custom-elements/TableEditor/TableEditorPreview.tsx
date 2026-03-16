@@ -114,7 +114,6 @@ export function TableEditorPreview() {
         metadata: parsed.payload.metadata,
       });
   }, [parsed.payload, previewSourceValue]);
-  const previewSourceLabel = sourceElementCodenames[0] ?? "this element";
   const title = getTextValue(
     config.titleElementCodename ? watchedElements?.get(config.titleElementCodename) : null,
   );
@@ -157,6 +156,11 @@ export function TableEditorPreview() {
             Add <code>sourceElementCodename</code> in this custom element&apos;s JSON parameters to point at
             the inline table field you want to preview.
           </p>
+        </div>
+      ) : null}
+      {payload.columns.length === 0 && parsed.warnings.length === 0 ? (
+        <div className="table-editor-warn table-editor-status">
+          <p>No table payload is available in the linked inline table field yet.</p>
         </div>
       ) : null}
       <section className={`table-editor-module-preview ${variantClassName}`}>
@@ -247,11 +251,6 @@ export function TableEditorPreview() {
           ) : null}
         </div>
       </section>
-      {payload.columns.length === 0 && parsed.warnings.length === 0 ? (
-        <div className="table-editor-warn table-editor-status">
-          <p>No table payload is available in {previewSourceLabel} yet.</p>
-        </div>
-      ) : null}
     </div>
   );
 }

@@ -106,9 +106,6 @@ export function TableEditor() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadWarnings, setLoadWarnings] = useState<string[]>([]);
   const [importErrors, setImportErrors] = useState<string[]>([]);
-  const [importMessage, setImportMessage] = useState<string>(
-    "Drop a CSV or paste spreadsheet data anywhere on the page. The first row is always used as headers.",
-  );
   const [isDragOver, setIsDragOver] = useState(false);
   const [draggedColumnIndex, setDraggedColumnIndex] = useState<number | null>(null);
   const [dropIndicator, setDropIndicator] = useState<{
@@ -122,7 +119,6 @@ export function TableEditor() {
     columnCount: number;
     importedAt: string;
   } | null>(null);
-  const [savedMessage, setSavedMessage] = useState("");
   const [payload, setPayload] = useState<InlineTablePayloadV1>(createEmptyPayload());
   const [hasUserChanges, setHasUserChanges] = useState(false);
 
@@ -142,7 +138,7 @@ export function TableEditor() {
     }
 
     CustomElement.setHeight(Math.ceil(nextHeight + 24));
-  }, [payload, importErrors, loadWarnings, isLoading, savedMessage, selectedColumnIndex]);
+  }, [payload, importErrors, loadWarnings, isLoading, selectedColumnIndex]);
 
   useEffect(() => {
     if (payload.columns.length === 0) {
@@ -186,7 +182,6 @@ export function TableEditor() {
 
     const timeoutId = window.setTimeout(() => {
       setStoredValue(serializedPayload);
-      setSavedMessage(`Saved automatically at ${new Date().toLocaleTimeString()}.`);
       setHasUserChanges(false);
     }, 300);
 
@@ -208,7 +203,6 @@ export function TableEditor() {
       | ((current: InlineTablePayloadV1) => InlineTablePayloadV1),
   ) {
     setHasUserChanges(true);
-    setSavedMessage("");
     setPayload(updater);
   }
 
@@ -358,9 +352,6 @@ export function TableEditor() {
     if (normalized.columns.length === 0) {
       setImportErrors(["Imported data did not contain parseable tabular values."]);
       setLastImport(null);
-      setImportMessage(
-        "Drop a CSV or paste spreadsheet data anywhere on the page. The first row is always used as headers.",
-      );
       return;
     }
 
@@ -389,18 +380,11 @@ export function TableEditor() {
 
     if (nextScale.exceedsInlineLimit) {
       setStoredValue(null);
-      setSavedMessage("");
       setImportErrors([]);
-      setImportMessage(
-        "Drop a CSV or paste spreadsheet data anywhere on the page. The first row is always used as headers.",
-      );
       return;
     }
 
     setImportErrors([]);
-    setImportMessage(
-      `Imported ${normalized.rows.length} rows and ${normalized.columns.length} columns from ${source}.`,
-    );
   }
 
   function getColumnPresentationStyle(
@@ -585,7 +569,6 @@ export function TableEditor() {
       </div>
 
       {isLoading ? <p className="muted table-editor-status">Loading existing field value...</p> : null}
-      {savedMessage ? <p className="table-editor-ok table-editor-status">{savedMessage}</p> : null}
       {loadWarnings.length > 0 ? (
         <div className="table-editor-warn table-editor-status">
           {loadWarnings.map((warning) => (
@@ -600,7 +583,7 @@ export function TableEditor() {
             {lastImport ? (
               <>
                 {" "}
-                You tried to import <strong>{lastImport.rowCount}</strong> rows and{" "}
+                Import not saved. You tried to import <strong>{lastImport.rowCount}</strong> rows and{" "}
                 <strong>{lastImport.columnCount}</strong> columns from{" "}
                 <strong>{lastImport.source.toUpperCase()}</strong>. Use the Dataset Source section
                 for larger tables.
@@ -671,7 +654,7 @@ export function TableEditor() {
 
             {lastImport && !scale.exceedsInlineLimit ? (
             <div className="table-editor-ok table-editor-import-summary" role="status" aria-live="polite">
-              Loaded successfully from <strong>{lastImport.source.toUpperCase()}</strong> at {lastImport.importedAt}.{" "}
+              Imported successfully from <strong>{lastImport.source.toUpperCase()}</strong> at {lastImport.importedAt}.{" "}
                 {lastImport.rowCount} rows and {lastImport.columnCount} columns are ready.
               </div>
             ) : (
@@ -679,8 +662,6 @@ export function TableEditor() {
                 Start with CSV or paste, then refine the grid directly below.
               </div>
             )}
-
-            <p className="muted">{importMessage}</p>
           </div>
         </section>
 
@@ -875,9 +856,24 @@ export function TableEditor() {
                       <option value="right">right</option>
                     </select>
                   </label>
+                  <label>
+                    <span>Width (optional)</span>
+                    <input
+                      type="number"
+                      min={80}
+                      step={10}
+                      placeholder="Auto"
+                      value={selectedColumn.width ?? ""}
+                      onChange={(event) =>
+                        updateColumn(selectedColumnIndex, {
+                          width: event.target.value ? Number(event.target.value) : null,
+                        })
+                      }
+                    />
+                  </label>
                   <div className="table-editor-column-note muted">
                     The first column is pinned automatically. Reorder in the grid by dragging the header,
-                    then review sizing and final presentation in the Table Preview element.
+                    then review the final presentation in the Table Preview element.
                   </div>
 
                   <div className="table-editor-column-sidebar-actions">

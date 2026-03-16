@@ -561,13 +561,9 @@
 
 .table-editor-rendered-preview {
   margin-top: 18px;
-}
-
-.table-editor-preview-summary {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-top: 18px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .table-editor-module-preview {
@@ -706,6 +702,7 @@
   position: relative;
   background: #ffffff;
   border-bottom: 1px solid #dbe5f0;
+  overflow: visible;
 }
 
 .table-editor-rendered-table td {
@@ -747,33 +744,6 @@
   font-size: 12px;
   letter-spacing: 0;
   text-transform: uppercase;
-}
-
-.table-editor-column-resize-handle {
-  position: absolute;
-  top: 0;
-  right: -4px;
-  width: 8px;
-  height: 100%;
-  cursor: col-resize;
-  z-index: 3;
-}
-
-.table-editor-column-resize-handle::after {
-  content: "";
-  position: absolute;
-  top: 18%;
-  bottom: 18%;
-  left: 50%;
-  width: 2px;
-  transform: translateX(-50%);
-  border-radius: 999px;
-  background: transparent;
-  transition: background-color 120ms ease;
-}
-
-.table-editor-rendered-table th:hover .table-editor-column-resize-handle::after {
-  background: rgba(45, 108, 223, 0.28);
 }
 
 .table-editor-rendered-cell {
