@@ -7,6 +7,8 @@ export type Config = Readonly<{
   titleElementCodename?: string;
   captionElementCodename?: string;
   variantElementCodename?: string;
+  pageSizeElementCodename?: string;
+  emptyStateElementCodename?: string;
   ctaLabelElementCodename?: string;
   ctaLinkElementCodename?: string;
 }>;

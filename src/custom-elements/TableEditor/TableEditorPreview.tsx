@@ -48,6 +48,16 @@ function getTextValue(value: string | ReadonlyArray<MultiChoiceOption> | null | 
   return String(value);
 }
 
+function getNumberValue(value: string | ReadonlyArray<MultiChoiceOption> | null | undefined): number | null {
+  const text = getTextValue(value);
+  if (!text) {
+    return null;
+  }
+
+  const parsed = Number(text);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
 function getVariantClass(variant: string): string {
   const normalized = variant.trim().toLowerCase();
   return normalized === "condensed" ? "is-condensed" : "is-full";
@@ -77,6 +87,8 @@ export function TableEditorPreview() {
         config.titleElementCodename,
         config.captionElementCodename,
         config.variantElementCodename,
+        config.pageSizeElementCodename,
+        config.emptyStateElementCodename,
         config.ctaLabelElementCodename,
         config.ctaLinkElementCodename,
       ]
@@ -112,6 +124,13 @@ export function TableEditorPreview() {
   const variant = getTextValue(
     config.variantElementCodename ? watchedElements?.get(config.variantElementCodename) : null,
   );
+  const pageSize = getNumberValue(
+    config.pageSizeElementCodename ? watchedElements?.get(config.pageSizeElementCodename) : null,
+  );
+  const emptyStateMessage =
+    getTextValue(
+      config.emptyStateElementCodename ? watchedElements?.get(config.emptyStateElementCodename) : null,
+    ) || "No data available for this table.";
   const ctaLabel = getTextValue(
     config.ctaLabelElementCodename ? watchedElements?.get(config.ctaLabelElementCodename) : null,
   );
@@ -119,57 +138,46 @@ export function TableEditorPreview() {
     config.ctaLinkElementCodename ? watchedElements?.get(config.ctaLinkElementCodename) : null,
   );
   const variantClassName = getVariantClass(variant || "full");
-  const previewRows = variantClassName === "is-condensed" ? payload.rows.slice(0, 8) : payload.rows;
+  const condensedCount = pageSize ?? 10;
+  const previewRows =
+    variantClassName === "is-condensed" ? payload.rows.slice(0, condensedCount) : payload.rows;
 
   return (
     <div className="table-editor-root table-editor-preview-page">
-      <section className="table-editor-panel table-editor-panel--flat table-editor-preview-shell">
-        <div className="table-editor-section-header">
-          <div>
-            <h2>Table preview</h2>
-            <p className="muted">Rendering the saved inline table payload from {previewSourceLabel}.</p>
-          </div>
+      {parsed.warnings.length > 0 ? (
+        <div className="table-editor-warn table-editor-status">
+          {parsed.warnings.map((warning) => (
+            <p key={warning}>{warning}</p>
+          ))}
         </div>
-        {parsed.warnings.length > 0 ? (
-          <div className="table-editor-warn">
-            {parsed.warnings.map((warning) => (
-              <p key={warning}>{warning}</p>
-            ))}
-          </div>
-        ) : null}
-        {sourceElementCodenames.length === 0 ? (
-          <div className="table-editor-warn">
-            <p>
-              Add <code>sourceElementCodename</code> in this custom element&apos;s JSON parameters to
-              point at the inline table field you want to preview.
-            </p>
-          </div>
-        ) : null}
-        {payload.columns.length === 0 && parsed.warnings.length === 0 ? (
-          <div className="table-editor-warn">
-            <p>No table payload is available in {previewSourceLabel} yet.</p>
-          </div>
-        ) : null}
-        <div className="table-editor-preview-summary">
-          <div className="table-editor-preview-chip">
-            <span className="table-editor-preview-chip-label">Columns</span>
-            <strong>{payload.columns.length}</strong>
-          </div>
-          <div className="table-editor-preview-chip">
-            <span className="table-editor-preview-chip-label">Rows</span>
-            <strong>{payload.rows.length}</strong>
-          </div>
-          <div className="table-editor-preview-chip">
-            <span className="table-editor-preview-chip-label">Version</span>
-            <strong>{payload.version}</strong>
-          </div>
+      ) : null}
+      {sourceElementCodenames.length === 0 ? (
+        <div className="table-editor-warn table-editor-status">
+          <p>
+            Add <code>sourceElementCodename</code> in this custom element&apos;s JSON parameters to point at
+            the inline table field you want to preview.
+          </p>
         </div>
-        <div className={`table-editor-module-preview ${variantClassName}`}>
+      ) : null}
+      <section className={`table-editor-module-preview ${variantClassName}`}>
+        <div className="table-editor-module-frame">
           {title || caption ? (
             <div className="table-editor-module-header">
               {title ? <h3>{title}</h3> : null}
-              {caption ? <p>{caption}</p> : null}
+              {caption ? <p className="table-editor-module-caption">{caption}</p> : null}
             </div>
+          ) : null}
+          {payload.columns.length > 0 ? (
+            <>
+              {variantClassName === "is-full" ? (
+                <div className="table-editor-module-controls" aria-hidden="true">
+                  <div className="table-editor-module-search">Search</div>
+                  <div className="table-editor-module-filter">Class</div>
+                  <div className="table-editor-module-filter">Week</div>
+                </div>
+              ) : null}
+              <div className="table-editor-module-rule" aria-hidden="true" />
+            </>
           ) : null}
           <div className="table-editor-table-scroll table-editor-rendered-preview">
             <table className="table-editor-preview-table table-editor-rendered-table">
@@ -195,7 +203,7 @@ export function TableEditorPreview() {
                 {payload.rows.length === 0 ? (
                   <tr>
                     <td colSpan={Math.max(payload.columns.length, 1)} className="table-editor-empty-preview">
-                      No rows available for preview.
+                      {emptyStateMessage}
                     </td>
                   </tr>
                 ) : (
@@ -239,6 +247,11 @@ export function TableEditorPreview() {
           ) : null}
         </div>
       </section>
+      {payload.columns.length === 0 && parsed.warnings.length === 0 ? (
+        <div className="table-editor-warn table-editor-status">
+          <p>No table payload is available in {previewSourceLabel} yet.</p>
+        </div>
+      ) : null}
     </div>
   );
 }

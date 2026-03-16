@@ -358,6 +358,9 @@ export function TableEditor() {
     if (normalized.columns.length === 0) {
       setImportErrors(["Imported data did not contain parseable tabular values."]);
       setLastImport(null);
+      setImportMessage(
+        "Drop a CSV or paste spreadsheet data anywhere on the page. The first row is always used as headers.",
+      );
       return;
     }
 
@@ -389,7 +392,7 @@ export function TableEditor() {
       setSavedMessage("");
       setImportErrors([]);
       setImportMessage(
-        `Imported ${normalized.rows.length} rows and ${normalized.columns.length} columns from ${source}, but Inline mode cannot store a table that large.`,
+        "Drop a CSV or paste spreadsheet data anywhere on the page. The first row is always used as headers.",
       );
       return;
     }
@@ -437,6 +440,7 @@ export function TableEditor() {
     const parsed = await parseCsvFile(file);
     if (parsed.errors.length > 0) {
       setImportErrors(parsed.errors);
+      setLastImport(null);
       return;
     }
 
@@ -453,12 +457,14 @@ export function TableEditor() {
     const file = event.dataTransfer.files?.[0];
     if (!file || !file.name.toLowerCase().endsWith(".csv")) {
       setImportErrors(["Drop a .csv file to import data."]);
+      setLastImport(null);
       return;
     }
 
     const parsed = await parseCsvFile(file);
     if (parsed.errors.length > 0) {
       setImportErrors(parsed.errors);
+      setLastImport(null);
       return;
     }
 
