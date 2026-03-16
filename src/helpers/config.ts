@@ -4,6 +4,11 @@ export type Config = Readonly<{
   sourceElementCodenames?: ReadonlyArray<string> | string;
   sourceCodename?: string;
   elementCodename?: string;
+  titleElementCodename?: string;
+  captionElementCodename?: string;
+  variantElementCodename?: string;
+  ctaLabelElementCodename?: string;
+  ctaLinkElementCodename?: string;
 }>;
 
 export const isConfig = (

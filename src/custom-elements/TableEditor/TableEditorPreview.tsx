@@ -36,6 +36,23 @@ function getColumnWidthStyle(column: InlineTableColumn): { width?: number; minWi
   return {};
 }
 
+function getTextValue(value: string | ReadonlyArray<MultiChoiceOption> | null | undefined): string {
+  if (!value) {
+    return "";
+  }
+
+  if (Array.isArray(value)) {
+    return value[0]?.codename ?? value[0]?.name ?? "";
+  }
+
+  return String(value);
+}
+
+function getVariantClass(variant: string): string {
+  const normalized = variant.trim().toLowerCase();
+  return normalized === "condensed" ? "is-condensed" : "is-full";
+}
+
 export function TableEditorPreview() {
   const config = useConfig();
   const [storedValue] = useValue();
@@ -54,7 +71,20 @@ export function TableEditorPreview() {
 
     return fromConfig.map((value) => value?.trim()).filter(Boolean) as string[];
   }, [config]);
-  const watchedElements = useElements(sourceElementCodenames);
+  const displayElementCodenames = useMemo(
+    () =>
+      [
+        config.titleElementCodename,
+        config.captionElementCodename,
+        config.variantElementCodename,
+        config.ctaLabelElementCodename,
+        config.ctaLinkElementCodename,
+      ]
+        .map((value) => value?.trim())
+        .filter(Boolean) as string[],
+    [config],
+  );
+  const watchedElements = useElements([...sourceElementCodenames, ...displayElementCodenames]);
   const watchedValue = sourceElementCodenames[0]
     ? watchedElements?.get(sourceElementCodenames[0]) ?? null
     : null;
@@ -73,10 +103,27 @@ export function TableEditorPreview() {
       });
   }, [parsed.payload, previewSourceValue]);
   const previewSourceLabel = sourceElementCodenames[0] ?? "this element";
+  const title = getTextValue(
+    config.titleElementCodename ? watchedElements?.get(config.titleElementCodename) : null,
+  );
+  const caption = getTextValue(
+    config.captionElementCodename ? watchedElements?.get(config.captionElementCodename) : null,
+  );
+  const variant = getTextValue(
+    config.variantElementCodename ? watchedElements?.get(config.variantElementCodename) : null,
+  );
+  const ctaLabel = getTextValue(
+    config.ctaLabelElementCodename ? watchedElements?.get(config.ctaLabelElementCodename) : null,
+  );
+  const ctaLink = getTextValue(
+    config.ctaLinkElementCodename ? watchedElements?.get(config.ctaLinkElementCodename) : null,
+  );
+  const variantClassName = getVariantClass(variant || "full");
+  const previewRows = variantClassName === "is-condensed" ? payload.rows.slice(0, 8) : payload.rows;
 
   return (
     <div className="table-editor-root table-editor-preview-page">
-      <section className="table-editor-panel table-editor-panel--flat">
+      <section className="table-editor-panel table-editor-panel--flat table-editor-preview-shell">
         <div className="table-editor-section-header">
           <div>
             <h2>Table preview</h2>
@@ -103,15 +150,6 @@ export function TableEditorPreview() {
             <p>No table payload is available in {previewSourceLabel} yet.</p>
           </div>
         ) : null}
-      </section>
-
-      <section className="table-editor-panel table-editor-panel--flat">
-        <div className="table-editor-section-header">
-          <div>
-            <h2>Rendered output</h2>
-            <p className="muted">A lightweight renderer for checking the saved table output.</p>
-          </div>
-        </div>
         <div className="table-editor-preview-summary">
           <div className="table-editor-preview-chip">
             <span className="table-editor-preview-chip-label">Columns</span>
@@ -126,7 +164,13 @@ export function TableEditorPreview() {
             <strong>{payload.version}</strong>
           </div>
         </div>
-        <div className="table-editor-module-preview">
+        <div className={`table-editor-module-preview ${variantClassName}`}>
+          {title || caption ? (
+            <div className="table-editor-module-header">
+              {title ? <h3>{title}</h3> : null}
+              {caption ? <p>{caption}</p> : null}
+            </div>
+          ) : null}
           <div className="table-editor-table-scroll table-editor-rendered-preview">
             <table className="table-editor-preview-table table-editor-rendered-table">
               <colgroup>
@@ -137,7 +181,10 @@ export function TableEditorPreview() {
               <thead>
                 <tr>
                   {payload.columns.map((column) => (
-                    <th key={`harness-head-${column.key}`} style={getColumnWidthStyle(column)}>
+                    <th
+                      key={`harness-head-${column.key}`}
+                      style={{ ...getColumnWidthStyle(column), textAlign: column.align }}
+                    >
                       <span className="table-editor-rendered-head-label">{column.label}</span>
                       <span className="table-editor-rendered-head-meta">{column.type}</span>
                     </th>
@@ -152,10 +199,13 @@ export function TableEditorPreview() {
                     </td>
                   </tr>
                 ) : (
-                  payload.rows.map((row) => (
+                  previewRows.map((row) => (
                     <tr key={`harness-row-${row.id}`}>
                       {payload.columns.map((column) => (
-                        <td key={`harness-${row.id}-${column.key}`} style={getColumnWidthStyle(column)}>
+                        <td
+                          key={`harness-${row.id}-${column.key}`}
+                          style={{ ...getColumnWidthStyle(column), textAlign: column.align }}
+                        >
                           <div className="table-editor-rendered-cell">
                             <span className="table-editor-rendered-cell-primary">
                               {formatPreviewCell(column, row[column.key])}
@@ -169,6 +219,24 @@ export function TableEditorPreview() {
               </tbody>
             </table>
           </div>
+          {ctaLabel ? (
+            <div className="table-editor-module-footer">
+              <a
+                className="table-editor-cta-button"
+                href={ctaLink || undefined}
+                target={ctaLink ? "_blank" : undefined}
+                rel={ctaLink ? "noreferrer" : undefined}
+                aria-disabled={!ctaLink}
+                onClick={(event) => {
+                  if (!ctaLink) {
+                    event.preventDefault();
+                  }
+                }}
+              >
+                {ctaLabel}
+              </a>
+            </div>
+          ) : null}
         </div>
       </section>
     </div>

@@ -3,7 +3,6 @@ import type {
   ClipboardEvent as ReactClipboardEvent,
   DragEvent,
   FormEvent,
-  MouseEvent as ReactMouseEvent,
 } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useIsDisabled, useValue } from "../../context";
@@ -27,7 +26,6 @@ import type {
   InlineTableRow,
 } from "./types";
 import "./table-editor.css";
-type EditorTab = "build" | "preview" | "payload";
 
 function generateRowId(index: number): string {
   return `row-${Date.now()}-${index}`;
@@ -48,25 +46,6 @@ function createEmptyRow(columns: InlineTableColumn[], rowIndex: number): InlineT
 function toInputValue(value: InlineCellValue): string {
   if (value === null || value === undefined) {
     return "";
-  }
-
-  return String(value);
-}
-
-function formatPreviewCell(column: InlineTableColumn, value: InlineCellValue): string {
-  if (value === null || value === undefined || value === "") {
-    return "—";
-  }
-
-  if (column.type === "boolean") {
-    return value === true ? "Yes" : value === false ? "No" : String(value);
-  }
-
-  if (column.type === "date") {
-    const parsed = new Date(String(value));
-    if (!Number.isNaN(parsed.getTime())) {
-      return parsed.toLocaleDateString();
-    }
   }
 
   return String(value);
@@ -121,13 +100,6 @@ function isEditablePasteTarget(target: EventTarget | null): boolean {
 export function TableEditor() {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const previewScrollRef = useRef<HTMLDivElement | null>(null);
-  const resizeStateRef = useRef<{
-    columnIndex: number;
-    startX: number;
-    startWidth: number;
-    maxWidth: number;
-  } | null>(null);
   const [storedValue, setStoredValue] = useValue();
   const isDisabled = useIsDisabled();
 
@@ -151,7 +123,6 @@ export function TableEditor() {
     importedAt: string;
   } | null>(null);
   const [savedMessage, setSavedMessage] = useState("");
-  const [activeTab, setActiveTab] = useState<EditorTab>("build");
   const [payload, setPayload] = useState<InlineTablePayloadV1>(createEmptyPayload());
   const [hasUserChanges, setHasUserChanges] = useState(false);
 
@@ -184,36 +155,6 @@ export function TableEditor() {
     }
   }, [payload.columns.length, selectedColumnIndex]);
 
-  useEffect(() => {
-    function handlePointerMove(event: MouseEvent) {
-      const resizeState = resizeStateRef.current;
-      if (!resizeState) {
-        return;
-      }
-
-      const nextWidth = Math.max(
-        80,
-        Math.min(
-          resizeState.maxWidth,
-          Math.round(resizeState.startWidth + (event.clientX - resizeState.startX)),
-        ),
-      );
-      updateColumn(resizeState.columnIndex, { width: nextWidth });
-    }
-
-    function handlePointerUp() {
-      resizeStateRef.current = null;
-    }
-
-    window.addEventListener("mousemove", handlePointerMove);
-    window.addEventListener("mouseup", handlePointerUp);
-
-    return () => {
-      window.removeEventListener("mousemove", handlePointerMove);
-      window.removeEventListener("mouseup", handlePointerUp);
-    };
-  }, [payload.columns]);
-
   const validation = useMemo(
     () => validatePayload(payload, { importErrors }),
     [payload, importErrors],
@@ -229,8 +170,6 @@ export function TableEditor() {
       }),
     [payload],
   );
-  const savedPayloadString =
-    typeof storedValue === "string" && storedValue.trim() ? storedValue : null;
   const selectedColumn = payload.columns[selectedColumnIndex] ?? null;
   const selectedColumnLabel = selectedColumn?.label?.trim() || "Selected column";
 
@@ -418,29 +357,56 @@ export function TableEditor() {
     const normalized = inferColumnsFromTabularData(matrix, true);
     if (normalized.columns.length === 0) {
       setImportErrors(["Imported data did not contain parseable tabular values."]);
+      setLastImport(null);
       return;
     }
 
-    updatePayloadState((current) =>
-      buildPayloadFromGrid({
-        tableId: current.tableId || "inline-table",
-        columns: normalized.columns,
-        rows: normalized.rows,
-        metadata: current.metadata,
-      }),
-    );
+    const importedAt = new Date().toLocaleTimeString();
+    const nextPayload = buildPayloadFromGrid({
+      tableId: payload.tableId || "inline-table",
+      columns: normalized.columns,
+      rows: normalized.rows,
+      metadata: payload.metadata,
+    });
+    const nextScale = estimatePayloadScale(nextPayload);
+
+    updatePayloadState((current) => ({
+      ...nextPayload,
+      tableId: current.tableId || nextPayload.tableId,
+      metadata: current.metadata,
+    }));
+
+    setLastImport({
+      source,
+      rowCount: normalized.rows.length,
+      columnCount: normalized.columns.length,
+      importedAt,
+    });
+    setSelectedColumnIndex(0);
+
+    if (nextScale.exceedsInlineLimit) {
+      setStoredValue(null);
+      setSavedMessage("");
+      setImportErrors([]);
+      setImportMessage(
+        `Imported ${normalized.rows.length} rows and ${normalized.columns.length} columns from ${source}, but Inline mode cannot store a table that large.`,
+      );
+      return;
+    }
 
     setImportErrors([]);
     setImportMessage(
       `Imported ${normalized.rows.length} rows and ${normalized.columns.length} columns from ${source}.`,
     );
-    setLastImport({
-      source,
-      rowCount: normalized.rows.length,
-      columnCount: normalized.columns.length,
-      importedAt: new Date().toLocaleTimeString(),
-    });
-    setSelectedColumnIndex(0);
+  }
+
+  function getColumnPresentationStyle(
+    column: InlineTableColumn,
+  ): { width?: number; minWidth?: number; maxWidth?: number; textAlign: InlineTableColumn["align"] } {
+    return {
+      ...getColumnWidthStyle(column),
+      textAlign: column.align,
+    };
   }
 
   function handleRootPaste(event: ReactClipboardEvent<HTMLDivElement>) {
@@ -544,68 +510,6 @@ export function TableEditor() {
     return {};
   }
 
-  function getPreviewContainerWidth(): number {
-    return previewScrollRef.current?.clientWidth ?? 0;
-  }
-
-  function getPreviewResizeMaxWidth(columnIndex: number): number {
-    const containerWidth = getPreviewContainerWidth();
-    if (!containerWidth) {
-      return 960;
-    }
-
-    const reservedForOtherColumns = payload.columns.reduce((sum, currentColumn, currentIndex) => {
-      if (currentIndex === columnIndex) {
-        return sum;
-      }
-
-      return sum + Math.max(80, currentColumn.width ?? currentColumn.minWidth ?? 80);
-    }, 0);
-
-    return Math.max(120, containerWidth - reservedForOtherColumns);
-  }
-
-  function autoSizePreviewColumn(columnIndex: number) {
-    const previewTable = previewScrollRef.current?.querySelector("table");
-    if (!previewTable) {
-      return;
-    }
-
-    const cellIndex = columnIndex + 1;
-    const nodes = previewTable.querySelectorAll<HTMLElement>(
-      `thead th:nth-child(${cellIndex}), tbody td:nth-child(${cellIndex})`,
-    );
-
-    let measuredWidth = 120;
-    nodes.forEach((node) => {
-      measuredWidth = Math.max(measuredWidth, Math.ceil(node.scrollWidth + 24));
-    });
-
-    updateColumn(columnIndex, {
-      width: Math.min(getPreviewResizeMaxWidth(columnIndex), measuredWidth),
-    });
-  }
-
-  function startPreviewResize(
-    event: ReactMouseEvent<HTMLSpanElement>,
-    columnIndex: number,
-    column: InlineTableColumn,
-  ) {
-    event.preventDefault();
-    event.stopPropagation();
-
-    resizeStateRef.current = {
-      columnIndex,
-      startX: event.clientX,
-      startWidth:
-        event.currentTarget.parentElement?.getBoundingClientRect().width ??
-        column.width ??
-        column.minWidth ??
-        180,
-      maxWidth: getPreviewResizeMaxWidth(columnIndex),
-    };
-  }
-
   function renderCellInput(row: InlineTableRow, column: InlineTableColumn) {
     const value = row[column.key];
 
@@ -613,6 +517,7 @@ export function TableEditor() {
       return (
         <select
           className="table-editor-cell-input"
+          style={{ textAlign: column.align }}
           value={
             value === null
               ? ""
@@ -635,6 +540,7 @@ export function TableEditor() {
       return (
         <textarea
           className="table-editor-cell-input table-editor-cell-textarea"
+          style={{ textAlign: column.align }}
           rows={1}
           value={toInputValue(value)}
           onChange={(event) => updateCell(row.id, column, event.target.value)}
@@ -649,6 +555,7 @@ export function TableEditor() {
     return (
       <input
         className="table-editor-cell-input"
+        style={{ textAlign: column.align }}
         type={
           column.type === "number"
             ? "text"
@@ -666,35 +573,9 @@ export function TableEditor() {
   return (
     <div className="table-editor-root" ref={rootRef} onPasteCapture={handleRootPaste}>
       <div className="table-editor-toolbar">
-        <div className="table-editor-tabs" role="tablist" aria-label="Table editor views">
-          <button
-            type="button"
-            className={`table-editor-tab ${activeTab === "build" ? "is-active" : ""}`}
-            role="tab"
-            aria-selected={activeTab === "build"}
-            onClick={() => setActiveTab("build")}
-          >
-            Build
-          </button>
-          <button
-            type="button"
-            className={`table-editor-tab ${activeTab === "preview" ? "is-active" : ""}`}
-            role="tab"
-            aria-selected={activeTab === "preview"}
-            onClick={() => setActiveTab("preview")}
-          >
-            Preview
-          </button>
-          <button
-            type="button"
-            className={`table-editor-tab ${activeTab === "payload" ? "is-active" : ""}`}
-            role="tab"
-            aria-selected={activeTab === "payload"}
-            onClick={() => setActiveTab("payload")}
-          >
-            Payload
-          </button>
-        </div>
+        <p className="muted table-editor-toolbar-note">
+          Click inside this custom element before pasting from Sheets or Excel.
+        </p>
       </div>
 
       {isLoading ? <p className="muted table-editor-status">Loading existing field value...</p> : null}
@@ -709,7 +590,18 @@ export function TableEditor() {
       {scale.exceedsInlineLimit ? (
         <div className="table-editor-warn table-editor-status">
           <p>
-            This table is too large for Inline mode. Use the Dataset Source section for larger tables.
+            This table is too large for Inline mode.
+            {lastImport ? (
+              <>
+                {" "}
+                You tried to import <strong>{lastImport.rowCount}</strong> rows and{" "}
+                <strong>{lastImport.columnCount}</strong> columns from{" "}
+                <strong>{lastImport.source.toUpperCase()}</strong>. Use the Dataset Source section
+                for larger tables.
+              </>
+            ) : (
+              <> Use the Dataset Source section for larger tables.</>
+            )}
           </p>
         </div>
       ) : null}
@@ -720,15 +612,13 @@ export function TableEditor() {
       ) : null}
 
       <fieldset disabled={isDisabled || isLoading} className="table-editor-fieldset">
-        {activeTab === "build" ? (
-        <>
         <section className="table-editor-panel table-editor-panel--flat">
           <div className="table-editor-upload-shell">
             <div className="table-editor-upload-copy">
               <h2>Import table data</h2>
               <p className="muted">
-                Drop a CSV file, click to upload, or paste spreadsheet data anywhere on this page.
-                The first row is always treated as the header row.
+                Drop a CSV file, click to upload, or paste spreadsheet data after clicking into this
+                editor. The first row is always treated as the header row.
               </p>
             </div>
           </div>
@@ -740,7 +630,7 @@ export function TableEditor() {
               </div>
               <p className="table-editor-upload-title">Click to upload or drag and drop</p>
               <p className="muted table-editor-upload-subtitle">
-                CSV only. Paste from Sheets/Excel works anywhere on the canvas.
+                CSV only. Paste from Sheets/Excel works after the editor is focused.
               </p>
               <button type="button" onClick={openFilePicker} className="table-editor-upload-cta">
                 Choose CSV
@@ -773,7 +663,7 @@ export function TableEditor() {
               </div>
             </div>
 
-            {lastImport ? (
+            {lastImport && !scale.exceedsInlineLimit ? (
             <div className="table-editor-ok table-editor-import-summary" role="status" aria-live="polite">
               Loaded successfully from <strong>{lastImport.source.toUpperCase()}</strong> at {lastImport.importedAt}.{" "}
                 {lastImport.rowCount} rows and {lastImport.columnCount} columns are ready.
@@ -900,7 +790,7 @@ export function TableEditor() {
                       <tr key={row.id}>
                         <td className="table-editor-row-index-cell">{rowIndex + 1}</td>
                         {payload.columns.map((column) => (
-                        <td key={`${row.id}-${column.key}`}>
+                        <td key={`${row.id}-${column.key}`} style={getColumnPresentationStyle(column)}>
                           {renderCellInput(row, column)}
                           </td>
                         ))}
@@ -980,7 +870,8 @@ export function TableEditor() {
                     </select>
                   </label>
                   <div className="table-editor-column-note muted">
-                    The first column is pinned automatically. Reorder in the grid by dragging the header, then resize columns directly from the rendered preview.
+                    The first column is pinned automatically. Reorder in the grid by dragging the header,
+                    then review sizing and final presentation in the Table Preview element.
                   </div>
 
                   <div className="table-editor-column-sidebar-actions">
@@ -1001,151 +892,6 @@ export function TableEditor() {
           </div>
         </section>
         ) : null}
-        </>
-        ) : null}
-
-        {activeTab === "preview" ? (
-        <section className="table-editor-panel table-editor-panel--flat">
-          <div className="table-editor-section-header">
-            <div>
-              <h2>Rendered preview</h2>
-              <p className="muted">
-                A cleaner table rendering based on the normalized JSON payload, styled closer to the data table module pattern.
-              </p>
-            </div>
-          </div>
-          <div className="table-editor-preview-summary">
-            <div className="table-editor-preview-chip">
-              <span className="table-editor-preview-chip-label">Columns</span>
-              <strong>{normalizedPreviewPayload.columns.length}</strong>
-            </div>
-            <div className="table-editor-preview-chip">
-              <span className="table-editor-preview-chip-label">Rows</span>
-              <strong>{normalizedPreviewPayload.rows.length}</strong>
-            </div>
-            <div className="table-editor-preview-chip">
-              <span className="table-editor-preview-chip-label">Source</span>
-              <strong>Inline</strong>
-            </div>
-          </div>
-          <div className="table-editor-module-preview">
-            <div className="table-editor-table-scroll table-editor-rendered-preview" ref={previewScrollRef}>
-              <table className="table-editor-preview-table table-editor-rendered-table">
-              <colgroup>
-                {normalizedPreviewPayload.columns.map((column) => (
-                  <col key={`preview-col-${column.key}`} style={getColumnWidthStyle(column)} />
-                ))}
-              </colgroup>
-              <thead>
-              <tr>
-                {normalizedPreviewPayload.columns.map((column, index) => (
-                  <th key={`preview-${column.key}`} style={getColumnWidthStyle(column)}>
-                    <span className="table-editor-rendered-head-label">{column.label}</span>
-                    <span className="table-editor-rendered-head-meta">{column.type}</span>
-                    <span
-                      className="table-editor-column-resize-handle"
-                      onMouseDown={(event) => startPreviewResize(event, index, column)}
-                      onDoubleClick={(event) => {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        autoSizePreviewColumn(index);
-                      }}
-                      role="separator"
-                      aria-orientation="vertical"
-                      aria-label={`Resize ${column.label} column`}
-                    />
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {normalizedPreviewPayload.rows.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={Math.max(normalizedPreviewPayload.columns.length, 1)}
-                    className="table-editor-empty-preview"
-                  >
-                    Import data to see the rendered table output here.
-                  </td>
-                </tr>
-              ) : (
-                normalizedPreviewPayload.rows.slice(0, 8).map((row) => (
-                  <tr key={`rendered-${row.id}`}>
-                    {normalizedPreviewPayload.columns.map((column) => (
-                        <td key={`rendered-${row.id}-${column.key}`} style={getColumnWidthStyle(column)}>
-                        <div className="table-editor-rendered-cell">
-                          <span className="table-editor-rendered-cell-primary">
-                            {formatPreviewCell(column, row[column.key])}
-                          </span>
-                        </div>
-                      </td>
-                    ))}
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-            </div>
-        </div>
-      </section>
-        ) : null}
-
-        {activeTab === "payload" ? (
-        <div className="table-editor-meta-grid">
-        <section className="table-editor-panel table-editor-panel--flat">
-          <h2>Status</h2>
-          <p>
-            Rows: <strong>{scale.rowCount}</strong>, Columns: <strong>{scale.columnCount}</strong>,
-            Payload size: <strong>{scale.payloadBytes}</strong> bytes.
-          </p>
-          {validation.generalErrors.length === 0 &&
-          Object.keys(validation.columnErrors).length === 0 &&
-          Object.keys(validation.rowErrors).length === 0 ? (
-            <p className="table-editor-ok">No validation errors.</p>
-          ) : (
-            <div className="table-editor-warn">
-              {validation.generalErrors.length > 0 ? (
-                <ul>
-                  {validation.generalErrors.map((error) => (
-                    <li key={error}>{error}</li>
-                  ))}
-                </ul>
-              ) : null}
-              {Object.entries(validation.columnErrors).map(([key, errors]) => (
-                <div key={key}>
-                  <strong>{key}</strong>
-                  <ul>
-                    {errors.map((error) => (
-                      <li key={error}>{error}</li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-              {Object.entries(validation.rowErrors).map(([key, errors]) => (
-                <div key={key}>
-                  <strong>{key}</strong>
-                  <ul>
-                    {errors.map((error) => (
-                      <li key={error}>{error}</li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section className="table-editor-panel table-editor-panel--flat">
-          <h2>Saved payload JSON</h2>
-          <p className="muted">
-            This is the normalized JSON that will be stored in the custom element field.
-          </p>
-          <pre className="table-editor-json-panel">
-            {savedPayloadString ?? JSON.stringify(normalizedPreviewPayload, null, 2)}
-          </pre>
-        </section>
-      </div>
-      ) : null}
       </fieldset>
     </div>
   );
