@@ -2,15 +2,18 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { defineConfig } from "vite";
+import type { Plugin, UserConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // https://vite.dev/config/
-export default defineConfig(async () => {
-  const plugins = [react()];
+export default async function createConfig(): Promise<UserConfig> {
+  const reactPlugins = react();
+  const plugins: Plugin[] = Array.isArray(reactPlugins)
+    ? reactPlugins
+    : [reactPlugins];
 
   // Allow local development even when private package access is not configured.
   const hasUiFoundations = existsSync(
@@ -68,4 +71,4 @@ export default defineConfig(async () => {
       coverage: { provider: "v8" },
     },
   };
-});
+}

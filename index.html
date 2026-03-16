@@ -6,8 +6,25 @@
     <meta name="description" content="DCTX Custom Elements application" />
     <title>DCTX Custom Elements</title>
     <link rel="icon" type="image/svg+xml" href="/custom-elements/favicon.svg" />
-    <!-- kontent.ai custom elements api-->
-    <script src="https://app.kontent.ai/js-api/custom-element/v1/custom-element.min.js"></script>
+    <!-- Load the Kontent SDK only when not previewing locally in a plain browser. -->
+    <script>
+      (function () {
+        const params = new URLSearchParams(window.location.search);
+        const isLocalPreview =
+          window.location.hostname === "localhost" ||
+          window.location.hostname === "127.0.0.1" ||
+          params.get("localPreview") === "1";
+
+        if (isLocalPreview) {
+          return;
+        }
+
+        const script = document.createElement("script");
+        script.src =
+          "https://app.kontent.ai/js-api/custom-element/v1/custom-element.min.js";
+        document.head.appendChild(script);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

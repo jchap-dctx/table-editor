@@ -13,7 +13,7 @@ const ensureLocalDevCustomElementMock = () => {
       window.location.hostname === "127.0.0.1" ||
       new URLSearchParams(window.location.search).get("localPreview") === "1");
 
-  if (!isLocalPreview || "CustomElement" in globalThis) {
+  if (!isLocalPreview) {
     return;
   }
 

@@ -1,0 +1,16 @@
+{
+  "rewrites": [
+    {
+      "source": "/custom-elements/assets/:path*",
+      "destination": "/assets/:path*"
+    },
+    {
+      "source": "/custom-elements/favicon.svg",
+      "destination": "/favicon.svg"
+    },
+    {
+      "source": "/custom-elements/:path*",
+      "destination": "/index.html"
+    }
+  ]
+}
