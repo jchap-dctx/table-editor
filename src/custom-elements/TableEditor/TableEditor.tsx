@@ -28,6 +28,9 @@ import type {
 } from "./types";
 import "./table-editor.css";
 
+const LOCAL_PREVIEW_STORAGE_KEY = "table-editor:last-saved-payload";
+type EditorTab = "build" | "preview" | "payload";
+
 function generateRowId(index: number): string {
   return `row-${Date.now()}-${index}`;
 }
@@ -150,6 +153,7 @@ export function TableEditor() {
     importedAt: string;
   } | null>(null);
   const [savedMessage, setSavedMessage] = useState("");
+  const [activeTab, setActiveTab] = useState<EditorTab>("build");
   const [payload, setPayload] = useState<InlineTablePayloadV1>(createEmptyPayload());
 
   useEffect(() => {
@@ -493,7 +497,9 @@ export function TableEditor() {
       return;
     }
 
-    setStoredValue(JSON.stringify(normalized));
+    const serializedPayload = JSON.stringify(normalized);
+    setStoredValue(serializedPayload);
+    window.localStorage.setItem(LOCAL_PREVIEW_STORAGE_KEY, serializedPayload);
     setPayload(normalized);
     setSavedMessage(`Saved at ${new Date().toLocaleTimeString()}.`);
   }
@@ -643,20 +649,42 @@ export function TableEditor() {
 
   return (
     <div className="table-editor-root" ref={rootRef} onPasteCapture={handleRootPaste}>
-      <header className="table-editor-header">
-        <div>
-          <p className="eyebrow">Custom Element / Inline Mode</p>
-          <h1>Table Editor</h1>
-          <p className="muted">
-            Import a CSV or paste spreadsheet data, then shape the table directly in the live grid.
-          </p>
+      <div className="table-editor-toolbar">
+        <div className="table-editor-tabs" role="tablist" aria-label="Table editor views">
+          <button
+            type="button"
+            className={`table-editor-tab ${activeTab === "build" ? "is-active" : ""}`}
+            role="tab"
+            aria-selected={activeTab === "build"}
+            onClick={() => setActiveTab("build")}
+          >
+            Build
+          </button>
+          <button
+            type="button"
+            className={`table-editor-tab ${activeTab === "preview" ? "is-active" : ""}`}
+            role="tab"
+            aria-selected={activeTab === "preview"}
+            onClick={() => setActiveTab("preview")}
+          >
+            Preview
+          </button>
+          <button
+            type="button"
+            className={`table-editor-tab ${activeTab === "payload" ? "is-active" : ""}`}
+            role="tab"
+            aria-selected={activeTab === "payload"}
+            onClick={() => setActiveTab("payload")}
+          >
+            Payload
+          </button>
         </div>
         <div className="table-editor-actions">
           <button type="button" className="primary" onClick={savePayload} disabled={!canSave}>
             Save payload
           </button>
         </div>
-      </header>
+      </div>
 
       {isLoading ? <p className="muted table-editor-status">Loading existing field value...</p> : null}
       {savedMessage ? <p className="table-editor-ok table-editor-status">{savedMessage}</p> : null}
@@ -667,9 +695,23 @@ export function TableEditor() {
           ))}
         </div>
       ) : null}
+      {scale.exceedsInlineLimit ? (
+        <div className="table-editor-warn table-editor-status">
+          <p>
+            This table is too large for Inline mode. Use the Dataset Source section for larger tables.
+          </p>
+        </div>
+      ) : null}
+      {importErrors.length > 0 ? (
+        <div className="table-editor-warn table-editor-status" role="alert">
+          <p>{importErrors[0]}</p>
+        </div>
+      ) : null}
 
       <fieldset disabled={isDisabled || isLoading} className="table-editor-fieldset">
-        <section className="table-editor-panel">
+        {activeTab === "build" ? (
+        <>
+        <section className="table-editor-panel table-editor-panel--flat">
           <div className="table-editor-upload-shell">
             <div className="table-editor-upload-copy">
               <h2>Import table data</h2>
@@ -721,8 +763,8 @@ export function TableEditor() {
             </div>
 
             {lastImport ? (
-              <div className="table-editor-ok table-editor-import-summary" role="status" aria-live="polite">
-                Loaded successfully from <strong>{lastImport.source.toUpperCase()}</strong> at {lastImport.importedAt}.{" "}
+            <div className="table-editor-ok table-editor-import-summary" role="status" aria-live="polite">
+              Loaded successfully from <strong>{lastImport.source.toUpperCase()}</strong> at {lastImport.importedAt}.{" "}
                 {lastImport.rowCount} rows and {lastImport.columnCount} columns are ready.
               </div>
             ) : (
@@ -735,7 +777,7 @@ export function TableEditor() {
           </div>
         </section>
 
-        <section className="table-editor-panel">
+        <section className="table-editor-panel table-editor-panel--flat">
           <div className="table-editor-section-header">
             <div>
               <h2>Live table builder</h2>
@@ -946,9 +988,11 @@ export function TableEditor() {
             </aside>
           </div>
         </section>
-      </fieldset>
+        </>
+        ) : null}
 
-        <section className="table-editor-panel">
+        {activeTab === "preview" ? (
+        <section className="table-editor-panel table-editor-panel--flat">
           <div className="table-editor-section-header">
             <div>
               <h2>Rendered preview</h2>
@@ -1031,83 +1075,57 @@ export function TableEditor() {
             </div>
         </div>
       </section>
+        ) : null}
 
-      <div className="table-editor-meta-grid">
-        <section className="table-editor-panel">
-          <h2>Validation</h2>
+        {activeTab === "payload" ? (
+        <div className="table-editor-meta-grid">
+        <section className="table-editor-panel table-editor-panel--flat">
+          <h2>Status</h2>
+          <p>
+            Rows: <strong>{scale.rowCount}</strong>, Columns: <strong>{scale.columnCount}</strong>,
+            Payload size: <strong>{scale.payloadBytes}</strong> bytes.
+          </p>
           {validation.generalErrors.length === 0 &&
           Object.keys(validation.columnErrors).length === 0 &&
           Object.keys(validation.rowErrors).length === 0 ? (
             <p className="table-editor-ok">No validation errors.</p>
-          ) : null}
-
-          {validation.generalErrors.length > 0 ? (
-            <ul>
-              {validation.generalErrors.map((error) => (
-                <li key={error}>{error}</li>
-              ))}
-            </ul>
-          ) : null}
-
-          {Object.entries(validation.columnErrors).map(([key, errors]) => (
-            <div key={key}>
-              <strong>{key}</strong>
-              <ul>
-                {errors.map((error) => (
-                  <li key={error}>{error}</li>
-                ))}
-              </ul>
-            </div>
-          ))}
-
-          {Object.entries(validation.rowErrors).map(([key, errors]) => (
-            <div key={key}>
-              <strong>{key}</strong>
-              <ul>
-                {errors.map((error) => (
-                  <li key={error}>{error}</li>
-                ))}
-              </ul>
-            </div>
-          ))}
-
-          {importErrors.length > 0 ? (
-            <div className="table-editor-warn" role="alert">
-              <p>Import issues:</p>
-              <ul>
-                {importErrors.map((error) => (
-                  <li key={error}>{error}</li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-        </section>
-
-        <section className="table-editor-panel">
-          <h2>Inline scale guardrail</h2>
-          <p>
-            Rows: <strong>{scale.rowCount}</strong> / 150, Columns:{" "}
-            <strong>{scale.columnCount}</strong> / 20, Payload size:{" "}
-            <strong>{scale.payloadBytes}</strong> bytes.
-          </p>
-          {scale.exceedsInlineLimit ? (
-            <div className="table-editor-warn">
-              <p>
-                This table exceeds practical Inline limits. You can still inspect the imported
-                data here, but save is blocked. Use the Dataset workflow for larger tables.
-              </p>
-              <ul>
-                {scale.messages.map((message) => (
-                  <li key={message}>{message}</li>
-                ))}
-              </ul>
-            </div>
           ) : (
-            <p className="table-editor-ok">Current size is within the Inline recommendation.</p>
+            <div className="table-editor-warn">
+              {validation.generalErrors.length > 0 ? (
+                <ul>
+                  {validation.generalErrors.map((error) => (
+                    <li key={error}>{error}</li>
+                  ))}
+                </ul>
+              ) : null}
+              {Object.entries(validation.columnErrors).map(([key, errors]) => (
+                <div key={key}>
+                  <strong>{key}</strong>
+                  <ul>
+                    {errors.map((error) => (
+                      <li key={error}>{error}</li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+              {Object.entries(validation.rowErrors).map(([key, errors]) => (
+                <div key={key}>
+                  <strong>{key}</strong>
+                  <ul>
+                    {errors.map((error) => (
+                      <li key={error}>{error}</li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
           )}
+          <p className="muted">
+            Preview harness route: <code>/custom-elements/table-editor-preview</code>
+          </p>
         </section>
 
-        <section className="table-editor-panel">
+        <section className="table-editor-panel table-editor-panel--flat">
           <h2>Saved payload JSON</h2>
           <p className="muted">
             This is the normalized JSON that will be stored in the custom element field.
@@ -1117,6 +1135,8 @@ export function TableEditor() {
           </pre>
         </section>
       </div>
+      ) : null}
+      </fieldset>
     </div>
   );
 }

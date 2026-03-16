@@ -13,11 +13,9 @@
   --table-warn-line: #f1c899;
   color: var(--table-text);
   display: grid;
-  gap: 16px;
-  padding: 16px;
-  background:
-    radial-gradient(circle at top left, rgba(45, 108, 223, 0.08), transparent 28%),
-    linear-gradient(180deg, #fbfdff 0%, var(--table-bg) 100%);
+  gap: 12px;
+  padding: 0;
+  background: transparent;
 }
 
 .table-editor-root button,
@@ -80,27 +78,18 @@
   resize: vertical;
 }
 
-.table-editor-header,
 .table-editor-panel {
   border: 1px solid var(--table-line);
-  background: rgba(255, 255, 255, 0.92);
-  border-radius: 18px;
-  box-shadow: 0 12px 32px rgba(28, 48, 77, 0.06);
+  background: #ffffff;
+  border-radius: 14px;
+  box-shadow: none;
 }
 
-.table-editor-header {
+.table-editor-toolbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 16px;
-  padding: 18px 20px;
-}
-
-.table-editor-header h1 {
-  margin: 0;
-  font-size: 30px;
-  line-height: 1;
-  letter-spacing: -0.03em;
+  gap: 12px;
 }
 
 .table-editor-actions,
@@ -123,7 +112,11 @@
 }
 
 .table-editor-panel {
-  padding: 22px;
+  padding: 18px;
+}
+
+.table-editor-panel--flat {
+  border-radius: 12px;
 }
 
 .table-editor-panel h2,
@@ -138,6 +131,28 @@
   letter-spacing: 0.09em;
   font-size: 11px;
   font-weight: 800;
+}
+
+.table-editor-tabs {
+  display: inline-flex;
+  gap: 8px;
+  padding: 4px;
+  border: 1px solid var(--table-line);
+  border-radius: 999px;
+  background: #ffffff;
+}
+
+.table-editor-tab {
+  border-radius: 999px !important;
+  border-color: transparent !important;
+  background: transparent !important;
+  padding: 8px 14px !important;
+  color: var(--table-muted) !important;
+}
+
+.table-editor-tab.is-active {
+  background: var(--table-accent-soft) !important;
+  color: var(--table-accent) !important;
 }
 
 .muted {
@@ -563,7 +578,7 @@
 
 .table-editor-meta-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
   gap: 16px;
 }
 
@@ -699,6 +714,15 @@
   line-height: 1.5;
 }
 
+.table-editor-preview-page {
+  padding: 16px;
+}
+
+.table-editor-preview-json-input {
+  display: grid;
+  gap: 8px;
+}
+
 @media (max-width: 1120px) {
   .table-editor-builder-layout,
   .table-editor-meta-grid {
@@ -707,11 +731,7 @@
 }
 
 @media (max-width: 720px) {
-  .table-editor-root {
-    padding: 12px;
-  }
-
-  .table-editor-header,
+  .table-editor-toolbar,
   .table-editor-upload-shell,
   .table-editor-section-header,
   .table-editor-column-sidebar-header {
