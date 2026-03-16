@@ -1,4 +1,11 @@
 export type Config = Readonly<{
+  title?: string;
+  caption?: string;
+  variant?: string;
+  pageSize?: number | string;
+  emptyStateMessage?: string;
+  ctaLabel?: string;
+  ctaLink?: string;
   textElementCodename?: string;
   sourceElementCodename?: string;
   sourceElementCodenames?: ReadonlyArray<string> | string;

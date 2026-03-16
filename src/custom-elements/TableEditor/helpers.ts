@@ -48,6 +48,10 @@ export function createEmptyPayload(): InlineTablePayloadV1 {
   };
 }
 
+export function getTableEditorDraftStorageKey(itemId: string, variantCodename: string): string {
+  return `table-editor-draft:${itemId}:${variantCodename}`;
+}
+
 export function normalizeHeaderToKey(header: string): string {
   const normalized = header
     .trim()

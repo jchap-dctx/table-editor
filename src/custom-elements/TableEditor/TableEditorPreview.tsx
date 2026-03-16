@@ -1,7 +1,12 @@
-import { useEffect, useMemo, useRef } from "react";
-import { useConfig, useValue } from "../../context";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useConfig, useItemInfo, useValue, useVariantInfo } from "../../context";
 import { useElements } from "../../helpers/selectors";
-import { buildPayloadFromGrid, createEmptyPayload, parseStoredPayload } from "./helpers";
+import {
+  buildPayloadFromGrid,
+  createEmptyPayload,
+  getTableEditorDraftStorageKey,
+  parseStoredPayload,
+} from "./helpers";
 import type { InlineTableColumn, InlineTablePayloadV1 } from "./types";
 import "./table-editor.css";
 
@@ -71,6 +76,13 @@ export function TableEditorPreview() {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const config = useConfig();
   const [storedValue] = useValue();
+  const item = useItemInfo();
+  const variantInfo = useVariantInfo();
+  const [draftFallbackValue, setDraftFallbackValue] = useState<string | null>(null);
+  const storageKey = useMemo(
+    () => getTableEditorDraftStorageKey(item.id, variantInfo.codename),
+    [item.id, variantInfo.codename],
+  );
   const sourceElementCodenames = useMemo(() => {
     const fromConfig = [
       firstDefined(config.sourceElementCodename, config.sourceCodename, config.elementCodename, config.textElementCodename, "table_editor"),
@@ -102,7 +114,7 @@ export function TableEditorPreview() {
   const watchedValue = sourceElementCodenames[0]
     ? watchedElements?.get(sourceElementCodenames[0]) ?? null
     : null;
-  const previewSourceValue = watchedValue ?? storedValue;
+  const previewSourceValue = watchedValue ?? draftFallbackValue ?? storedValue;
   const parsed = useMemo(() => parseStoredPayload(previewSourceValue), [previewSourceValue]);
   const payload: InlineTablePayloadV1 = useMemo(() => {
     if (!previewSourceValue || (typeof previewSourceValue === "string" && !previewSourceValue.trim())) {
@@ -123,17 +135,44 @@ export function TableEditorPreview() {
   const emptyStateCodename = firstDefined(config.emptyStateElementCodename, "empty_state_message");
   const ctaLabelCodename = firstDefined(config.ctaLabelElementCodename, "cta_label");
   const ctaLinkCodename = firstDefined(config.ctaLinkElementCodename, "cta_link");
-  const title = getTextValue(titleCodename ? watchedElements?.get(titleCodename) : null);
-  const caption = getTextValue(captionCodename ? watchedElements?.get(captionCodename) : null);
-  const variant = getTextValue(variantCodename ? watchedElements?.get(variantCodename) : null);
-  const pageSize = getNumberValue(pageSizeCodename ? watchedElements?.get(pageSizeCodename) : null);
+  const title = getTextValue(titleCodename ? watchedElements?.get(titleCodename) : null) || config.title || "";
+  const caption =
+    getTextValue(captionCodename ? watchedElements?.get(captionCodename) : null) || config.caption || "";
+  const variant =
+    getTextValue(variantCodename ? watchedElements?.get(variantCodename) : null) || config.variant || "";
+  const pageSize =
+    getNumberValue(pageSizeCodename ? watchedElements?.get(pageSizeCodename) : null) ??
+    (typeof config.pageSize === "number"
+      ? config.pageSize
+      : typeof config.pageSize === "string"
+        ? Number(config.pageSize) || null
+        : null);
   const emptyStateMessage =
     getTextValue(emptyStateCodename ? watchedElements?.get(emptyStateCodename) : null) ||
+    config.emptyStateMessage ||
     "No data available for this table.";
-  const ctaLabel = getTextValue(ctaLabelCodename ? watchedElements?.get(ctaLabelCodename) : null);
-  const ctaLink = getTextValue(ctaLinkCodename ? watchedElements?.get(ctaLinkCodename) : null);
+  const ctaLabel =
+    getTextValue(ctaLabelCodename ? watchedElements?.get(ctaLabelCodename) : null) || config.ctaLabel || "";
+  const ctaLink =
+    getTextValue(ctaLinkCodename ? watchedElements?.get(ctaLinkCodename) : null) || config.ctaLink || "";
   const variantClassName = getVariantClass(variant || "full");
   const previewRows = pageSize ? payload.rows.slice(0, pageSize) : payload.rows;
+
+  useEffect(() => {
+    const serializedDraft = window.localStorage.getItem(storageKey);
+    if (!serializedDraft) {
+      setDraftFallbackValue(null);
+      return;
+    }
+
+    try {
+      const draft = JSON.parse(serializedDraft) as { payload?: InlineTablePayloadV1 };
+      setDraftFallbackValue(draft.payload ? JSON.stringify(draft.payload) : null);
+    } catch (error) {
+      console.warn("Unable to restore preview draft state.", error);
+      setDraftFallbackValue(null);
+    }
+  }, [storageKey, watchedValue]);
 
   useEffect(() => {
     const nextHeight = rootRef.current?.getBoundingClientRect().height;
@@ -154,36 +193,29 @@ export function TableEditorPreview() {
               {caption ? <p className="table-editor-module-caption">{caption}</p> : null}
             </div>
           ) : null}
-          {payload.columns.length > 0 ? <div className="table-editor-module-rule" aria-hidden="true" /> : null}
-          <div className="table-editor-table-scroll table-editor-rendered-preview">
-            <table className="table-editor-preview-table table-editor-rendered-table">
-              <colgroup>
-                {payload.columns.map((column) => (
-                  <col key={`harness-col-${column.key}`} style={getColumnWidthStyle(column)} />
-                ))}
-              </colgroup>
-              <thead>
-                <tr>
+          {payload.columns.length > 0 && payload.rows.length > 0 ? (
+            <div className="table-editor-table-scroll table-editor-rendered-preview">
+              <table className="table-editor-preview-table table-editor-rendered-table">
+                <colgroup>
                   {payload.columns.map((column) => (
-                    <th
-                      key={`harness-head-${column.key}`}
-                      style={{ ...getColumnWidthStyle(column), textAlign: column.align }}
-                    >
-                      <span className="table-editor-rendered-head-label">{column.label}</span>
-                      <span className="table-editor-rendered-head-meta">{column.type}</span>
-                    </th>
+                    <col key={`harness-col-${column.key}`} style={getColumnWidthStyle(column)} />
                   ))}
-                </tr>
-              </thead>
-              <tbody>
-                {payload.rows.length === 0 ? (
+                </colgroup>
+                <thead>
                   <tr>
-                    <td colSpan={Math.max(payload.columns.length, 1)} className="table-editor-empty-preview">
-                      {emptyStateMessage}
-                    </td>
+                    {payload.columns.map((column) => (
+                      <th
+                        key={`harness-head-${column.key}`}
+                        style={{ ...getColumnWidthStyle(column), textAlign: column.align }}
+                      >
+                        <span className="table-editor-rendered-head-label">{column.label}</span>
+                        <span className="table-editor-rendered-head-meta">{column.type}</span>
+                      </th>
+                    ))}
                   </tr>
-                ) : (
-                  previewRows.map((row) => (
+                </thead>
+                <tbody>
+                  {previewRows.map((row) => (
                     <tr key={`harness-row-${row.id}`}>
                       {payload.columns.map((column) => (
                         <td
@@ -198,11 +230,15 @@ export function TableEditorPreview() {
                         </td>
                       ))}
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="table-editor-empty-preview-message">
+              {emptyStateMessage}
+            </div>
+          )}
           {ctaLabel ? (
             <div className="table-editor-module-footer">
               <a

@@ -12,6 +12,7 @@ import {
   createDefaultColumn,
   createEmptyPayload,
   estimatePayloadScale,
+  getTableEditorDraftStorageKey,
   inferColumnsFromTabularData,
   normalizeHeaderToKey,
   parseStoredPayload,
@@ -100,6 +101,7 @@ function isEditablePasteTarget(target: EventTarget | null): boolean {
 export function TableEditor() {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const hasInitializedRef = useRef(false);
   const [storedValue, setStoredValue] = useValue();
   const isDisabled = useIsDisabled();
   const item = useItemInfo();
@@ -124,12 +126,14 @@ export function TableEditor() {
   const [lastImportStatus, setLastImportStatus] = useState<"idle" | "success" | "too-large">("idle");
   const [payload, setPayload] = useState<InlineTablePayloadV1>(createEmptyPayload());
   const [hasUserChanges, setHasUserChanges] = useState(false);
-  const storageKey = useMemo(
-    () => `table-editor-draft:${item.id}:${variant.codename}:${window.location.pathname}`,
-    [item.id, variant.codename],
-  );
+  const storageKey = useMemo(() => getTableEditorDraftStorageKey(item.id, variant.codename), [item.id, variant.codename]);
 
   useEffect(() => {
+    if (hasInitializedRef.current) {
+      return;
+    }
+    hasInitializedRef.current = true;
+
     const parsed = parseStoredPayload(storedValue);
     let nextPayload = parsed.payload;
     let nextImport: typeof lastImport = null;
