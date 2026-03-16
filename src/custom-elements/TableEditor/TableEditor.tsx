@@ -215,6 +215,8 @@ export function TableEditor() {
   );
   const selectedColumn = payload.columns[selectedColumnIndex] ?? null;
   const selectedColumnLabel = selectedColumn?.label?.trim() || "Selected column";
+  const hasPersistedInlinePayload =
+    storedValue !== null && storedValue !== undefined && !(typeof storedValue === "string" && !storedValue.trim());
 
   useEffect(() => {
     if (isLoading || isDisabled || !hasUserChanges || !validation.isValid || scale.exceedsInlineLimit) {
@@ -702,7 +704,7 @@ export function TableEditor() {
               </div>
             </div>
 
-            {lastImport && lastImportStatus === "success" && !scale.exceedsInlineLimit ? (
+            {lastImport && lastImportStatus === "success" && hasPersistedInlinePayload && !scale.exceedsInlineLimit ? (
             <div className="table-editor-ok table-editor-import-summary" role="status" aria-live="polite">
               Imported successfully from <strong>{lastImport.source.toUpperCase()}</strong> at {lastImport.importedAt}.{" "}
                 {lastImport.rowCount} rows and {lastImport.columnCount} columns are ready.
@@ -715,7 +717,7 @@ export function TableEditor() {
           </div>
         </section>
 
-        {payload.columns.length > 0 && !scale.exceedsInlineLimit ? (
+        {payload.columns.length > 0 && hasPersistedInlinePayload && !scale.exceedsInlineLimit ? (
         <section className="table-editor-panel table-editor-panel--flat">
           <div className="table-editor-section-header">
             <div>

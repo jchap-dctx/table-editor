@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useConfig, useValue } from "../../context";
 import { useElements } from "../../helpers/selectors";
 import { buildPayloadFromGrid, createEmptyPayload, parseStoredPayload } from "./helpers";
@@ -63,15 +63,17 @@ function getVariantClass(variant: string): string {
   return normalized === "condensed" ? "is-condensed" : "is-full";
 }
 
+function firstDefined(...values: Array<string | undefined>): string | undefined {
+  return values.find((value) => typeof value === "string" && value.trim());
+}
+
 export function TableEditorPreview() {
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const config = useConfig();
   const [storedValue] = useValue();
   const sourceElementCodenames = useMemo(() => {
     const fromConfig = [
-      config.sourceElementCodename,
-      config.sourceCodename,
-      config.elementCodename,
-      config.textElementCodename,
+      firstDefined(config.sourceElementCodename, config.sourceCodename, config.elementCodename, config.textElementCodename, "table_editor"),
       ...(Array.isArray(config.sourceElementCodenames)
         ? config.sourceElementCodenames
         : typeof config.sourceElementCodenames === "string"
@@ -84,13 +86,13 @@ export function TableEditorPreview() {
   const displayElementCodenames = useMemo(
     () =>
       [
-        config.titleElementCodename,
-        config.captionElementCodename,
-        config.variantElementCodename,
-        config.pageSizeElementCodename,
-        config.emptyStateElementCodename,
-        config.ctaLabelElementCodename,
-        config.ctaLinkElementCodename,
+        firstDefined(config.titleElementCodename, "title"),
+        firstDefined(config.captionElementCodename, "caption"),
+        firstDefined(config.variantElementCodename, "variant"),
+        firstDefined(config.pageSizeElementCodename, "page_size"),
+        firstDefined(config.emptyStateElementCodename, "empty_state_message"),
+        firstDefined(config.ctaLabelElementCodename, "cta_label"),
+        firstDefined(config.ctaLinkElementCodename, "cta_link"),
       ]
         .map((value) => value?.trim())
         .filter(Boolean) as string[],
@@ -114,35 +116,36 @@ export function TableEditorPreview() {
         metadata: parsed.payload.metadata,
       });
   }, [parsed.payload, previewSourceValue]);
-  const title = getTextValue(
-    config.titleElementCodename ? watchedElements?.get(config.titleElementCodename) : null,
-  );
-  const caption = getTextValue(
-    config.captionElementCodename ? watchedElements?.get(config.captionElementCodename) : null,
-  );
-  const variant = getTextValue(
-    config.variantElementCodename ? watchedElements?.get(config.variantElementCodename) : null,
-  );
-  const pageSize = getNumberValue(
-    config.pageSizeElementCodename ? watchedElements?.get(config.pageSizeElementCodename) : null,
-  );
+  const titleCodename = firstDefined(config.titleElementCodename, "title");
+  const captionCodename = firstDefined(config.captionElementCodename, "caption");
+  const variantCodename = firstDefined(config.variantElementCodename, "variant");
+  const pageSizeCodename = firstDefined(config.pageSizeElementCodename, "page_size");
+  const emptyStateCodename = firstDefined(config.emptyStateElementCodename, "empty_state_message");
+  const ctaLabelCodename = firstDefined(config.ctaLabelElementCodename, "cta_label");
+  const ctaLinkCodename = firstDefined(config.ctaLinkElementCodename, "cta_link");
+  const title = getTextValue(titleCodename ? watchedElements?.get(titleCodename) : null);
+  const caption = getTextValue(captionCodename ? watchedElements?.get(captionCodename) : null);
+  const variant = getTextValue(variantCodename ? watchedElements?.get(variantCodename) : null);
+  const pageSize = getNumberValue(pageSizeCodename ? watchedElements?.get(pageSizeCodename) : null);
   const emptyStateMessage =
-    getTextValue(
-      config.emptyStateElementCodename ? watchedElements?.get(config.emptyStateElementCodename) : null,
-    ) || "No data available for this table.";
-  const ctaLabel = getTextValue(
-    config.ctaLabelElementCodename ? watchedElements?.get(config.ctaLabelElementCodename) : null,
-  );
-  const ctaLink = getTextValue(
-    config.ctaLinkElementCodename ? watchedElements?.get(config.ctaLinkElementCodename) : null,
-  );
+    getTextValue(emptyStateCodename ? watchedElements?.get(emptyStateCodename) : null) ||
+    "No data available for this table.";
+  const ctaLabel = getTextValue(ctaLabelCodename ? watchedElements?.get(ctaLabelCodename) : null);
+  const ctaLink = getTextValue(ctaLinkCodename ? watchedElements?.get(ctaLinkCodename) : null);
   const variantClassName = getVariantClass(variant || "full");
-  const condensedCount = pageSize ?? 10;
-  const previewRows =
-    variantClassName === "is-condensed" ? payload.rows.slice(0, condensedCount) : payload.rows;
+  const previewRows = pageSize ? payload.rows.slice(0, pageSize) : payload.rows;
+
+  useEffect(() => {
+    const nextHeight = rootRef.current?.getBoundingClientRect().height;
+    if (!nextHeight) {
+      return;
+    }
+
+    CustomElement.setHeight(Math.ceil(nextHeight + 24));
+  }, [caption, ctaLabel, emptyStateMessage, pageSize, payload, title, variantClassName, watchedElements]);
 
   return (
-    <div className="table-editor-root table-editor-preview-page">
+    <div className="table-editor-root table-editor-preview-page" ref={rootRef}>
       <section className={`table-editor-module-preview ${variantClassName}`}>
         <div className="table-editor-module-frame">
           {title || caption ? (
