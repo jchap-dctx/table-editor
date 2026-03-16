@@ -68,6 +68,7 @@
 .table-editor-root select,
 .table-editor-root textarea {
   width: 100%;
+  box-sizing: border-box;
   border: 1px solid var(--table-line-strong);
   border-radius: 10px;
   padding: 10px 12px;
@@ -404,6 +405,7 @@
   border-radius: 0 !important;
   padding: 0 !important;
   background: transparent !important;
+  width: auto !important;
   font-weight: 700;
   font-size: 16px;
   box-shadow: none !important;
@@ -433,7 +435,8 @@
 }
 
 .table-editor-live-grid td input,
-.table-editor-live-grid td select {
+.table-editor-live-grid td select,
+.table-editor-live-grid td textarea {
   border: 1px solid transparent;
   background: transparent;
   border-radius: 10px;
@@ -446,26 +449,34 @@
 }
 
 .table-editor-live-grid td input:hover,
-.table-editor-live-grid td select:hover {
+.table-editor-live-grid td select:hover,
+.table-editor-live-grid td textarea:hover {
   background: #f7faff;
 }
 
 .table-editor-live-grid td input:focus,
-.table-editor-live-grid td select:focus {
+.table-editor-live-grid td select:focus,
+.table-editor-live-grid td textarea:focus {
   background: #ffffff;
   border-color: rgba(45, 108, 223, 0.32);
   box-shadow: 0 0 0 3px rgba(45, 108, 223, 0.1);
 }
 
-.table-editor-live-grid td input::placeholder {
+.table-editor-live-grid td input::placeholder,
+.table-editor-live-grid td textarea::placeholder {
   color: #98a7b8;
 }
 
 .table-editor-cell-input {
   min-height: 44px;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.table-editor-cell-textarea {
+  resize: none;
   overflow: hidden;
+  line-height: 1.5;
 }
 
 .table-editor-column-sidebar {
@@ -506,6 +517,12 @@
 .table-editor-column-sidebar-form {
   display: grid;
   gap: 12px;
+}
+
+.table-editor-column-sidebar-form label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
 }
 
 .table-editor-column-sidebar-actions {
@@ -554,6 +571,59 @@
   margin-top: 18px;
 }
 
+.table-editor-preview-controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.table-editor-preview-controls label {
+  display: grid;
+  gap: 6px;
+}
+
+.table-editor-module-preview {
+  margin-top: 18px;
+  border: 1px solid var(--table-line);
+  border-radius: 24px;
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgba(28, 48, 77, 0.05);
+  overflow: hidden;
+}
+
+.table-editor-module-preview--condensed .table-editor-rendered-table td {
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+.table-editor-module-header {
+  padding: 24px 24px 10px;
+  border-bottom: 2px solid #2f3944;
+}
+
+.table-editor-module-header h3 {
+  margin: 0;
+  font-size: 34px;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  font-weight: 800;
+}
+
+.table-editor-module-footer {
+  display: flex;
+  justify-content: center;
+  padding: 22px 24px 26px;
+}
+
+.table-editor-module-cta {
+  border-radius: 999px !important;
+  border-color: var(--table-accent) !important;
+  color: var(--table-accent) !important;
+  background: #ffffff !important;
+  padding-inline: 20px !important;
+}
+
 .table-editor-preview-chip {
   display: inline-flex;
   align-items: center;
@@ -598,34 +668,30 @@
 .table-editor-rendered-head-label {
   font-weight: 800;
   color: var(--table-text);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 12px;
 }
 
 .table-editor-rendered-head-meta {
   margin-top: 4px;
   color: var(--table-muted);
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .table-editor-rendered-cell {
   display: grid;
-  gap: 4px;
+  gap: 0;
   overflow-wrap: anywhere;
   word-break: break-word;
 }
 
 .table-editor-rendered-cell-primary {
-  font-weight: 600;
+  font-weight: 700;
   color: var(--table-text);
   line-height: 1.5;
-}
-
-.table-editor-rendered-cell-secondary {
-  color: var(--table-muted);
-  font-size: 12px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
 }
 
 .table-editor-json-panel {
@@ -642,7 +708,8 @@
 
 @media (max-width: 1120px) {
   .table-editor-builder-layout,
-  .table-editor-meta-grid {
+  .table-editor-meta-grid,
+  .table-editor-preview-controls {
     grid-template-columns: 1fr;
   }
 }

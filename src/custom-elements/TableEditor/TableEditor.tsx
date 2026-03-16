@@ -1,4 +1,9 @@
-import type { ChangeEvent, ClipboardEvent as ReactClipboardEvent, DragEvent } from "react";
+import type {
+  ChangeEvent,
+  ClipboardEvent as ReactClipboardEvent,
+  DragEvent,
+  FormEvent,
+} from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useIsDisabled, useValue } from "../../context";
 import { parseCsvFile } from "./csv";
@@ -137,6 +142,9 @@ export function TableEditor() {
     importedAt: string;
   } | null>(null);
   const [savedMessage, setSavedMessage] = useState("");
+  const [previewTitle, setPreviewTitle] = useState("Module Title");
+  const [previewCtaLabel, setPreviewCtaLabel] = useState("View Full List");
+  const [previewVariant, setPreviewVariant] = useState<"condensed" | "full">("full");
   const [payload, setPayload] = useState<InlineTablePayloadV1>(createEmptyPayload());
 
   useEffect(() => {
@@ -455,6 +463,12 @@ export function TableEditor() {
     setSavedMessage(`Saved at ${new Date().toLocaleTimeString()}.`);
   }
 
+  function autoGrowTextarea(event: FormEvent<HTMLTextAreaElement>) {
+    const element = event.currentTarget;
+    element.style.height = "0px";
+    element.style.height = `${element.scrollHeight}px`;
+  }
+
   function renderCellInput(row: InlineTableRow, column: InlineTableColumn) {
     const value = row[column.key];
 
@@ -480,6 +494,19 @@ export function TableEditor() {
       );
     }
 
+    if (column.type === "text" || column.type === "link") {
+      return (
+        <textarea
+          className="table-editor-cell-input table-editor-cell-textarea"
+          rows={1}
+          value={toInputValue(value)}
+          onChange={(event) => updateCell(row.id, column, event.target.value)}
+          onInput={autoGrowTextarea}
+          placeholder={column.label}
+        />
+      );
+    }
+
     return (
       <input
         className="table-editor-cell-input"
@@ -488,9 +515,7 @@ export function TableEditor() {
             ? "text"
             : column.type === "date"
               ? "date"
-              : column.type === "link"
-                ? "url"
-                : "text"
+              : "text"
         }
         value={toInputValue(value)}
         onChange={(event) => updateCell(row.id, column, event.target.value)}
@@ -816,6 +841,36 @@ export function TableEditor() {
               </p>
             </div>
           </div>
+          <div className="table-editor-preview-controls">
+            <label>
+              <span>Preview title</span>
+              <input
+                value={previewTitle}
+                onChange={(event) => setPreviewTitle(event.target.value)}
+                placeholder="Module Title"
+              />
+            </label>
+            <label>
+              <span>Preview style</span>
+              <select
+                value={previewVariant}
+                onChange={(event) =>
+                  setPreviewVariant(event.target.value as "condensed" | "full")
+                }
+              >
+                <option value="full">Full</option>
+                <option value="condensed">Condensed</option>
+              </select>
+            </label>
+            <label>
+              <span>CTA label</span>
+              <input
+                value={previewCtaLabel}
+                onChange={(event) => setPreviewCtaLabel(event.target.value)}
+                placeholder="View Full List"
+              />
+            </label>
+          </div>
           <div className="table-editor-preview-summary">
             <div className="table-editor-preview-chip">
               <span className="table-editor-preview-chip-label">Columns</span>
@@ -830,8 +885,12 @@ export function TableEditor() {
               <strong>Inline</strong>
             </div>
           </div>
-          <div className="table-editor-table-scroll table-editor-rendered-preview">
-            <table className="table-editor-preview-table table-editor-rendered-table">
+          <div className={`table-editor-module-preview table-editor-module-preview--${previewVariant}`}>
+            <div className="table-editor-module-header">
+              <h3>{previewTitle || "Module Title"}</h3>
+            </div>
+            <div className="table-editor-table-scroll table-editor-rendered-preview">
+              <table className="table-editor-preview-table table-editor-rendered-table">
               <thead>
               <tr>
                 {normalizedPreviewPayload.columns.map((column) => (
@@ -861,9 +920,6 @@ export function TableEditor() {
                           <span className="table-editor-rendered-cell-primary">
                             {formatPreviewCell(column, row[column.key])}
                           </span>
-                          <span className="table-editor-rendered-cell-secondary">
-                            {column.key}
-                          </span>
                         </div>
                       </td>
                     ))}
@@ -872,6 +928,14 @@ export function TableEditor() {
               )}
             </tbody>
           </table>
+            </div>
+            {previewCtaLabel.trim() ? (
+              <div className="table-editor-module-footer">
+                <button type="button" className="table-editor-module-cta">
+                  {previewCtaLabel}
+                </button>
+              </div>
+            ) : null}
         </div>
       </section>
 
