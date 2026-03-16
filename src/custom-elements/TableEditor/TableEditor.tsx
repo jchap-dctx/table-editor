@@ -120,10 +120,12 @@ function isEditablePasteTarget(target: EventTarget | null): boolean {
 export function TableEditor() {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const previewScrollRef = useRef<HTMLDivElement | null>(null);
   const resizeStateRef = useRef<{
     columnIndex: number;
     startX: number;
     startWidth: number;
+    maxWidth: number;
   } | null>(null);
   const [storedValue, setStoredValue] = useValue();
   const isDisabled = useIsDisabled();
@@ -185,7 +187,13 @@ export function TableEditor() {
         return;
       }
 
-      const nextWidth = Math.max(80, Math.round(resizeState.startWidth + (event.clientX - resizeState.startX)));
+      const nextWidth = Math.max(
+        80,
+        Math.min(
+          resizeState.maxWidth,
+          Math.round(resizeState.startWidth + (event.clientX - resizeState.startX)),
+        ),
+      );
       updateColumn(resizeState.columnIndex, { width: nextWidth });
     }
 
@@ -504,7 +512,6 @@ export function TableEditor() {
       return {
         width: column.width,
         minWidth: column.width,
-        maxWidth: column.width,
       };
     }
 
@@ -513,6 +520,48 @@ export function TableEditor() {
     }
 
     return {};
+  }
+
+  function getPreviewContainerWidth(): number {
+    return previewScrollRef.current?.clientWidth ?? 0;
+  }
+
+  function getPreviewResizeMaxWidth(columnIndex: number): number {
+    const containerWidth = getPreviewContainerWidth();
+    if (!containerWidth) {
+      return 960;
+    }
+
+    const reservedForOtherColumns = payload.columns.reduce((sum, currentColumn, currentIndex) => {
+      if (currentIndex === columnIndex) {
+        return sum;
+      }
+
+      return sum + Math.max(80, currentColumn.width ?? currentColumn.minWidth ?? 80);
+    }, 0);
+
+    return Math.max(120, containerWidth - reservedForOtherColumns);
+  }
+
+  function autoSizePreviewColumn(columnIndex: number) {
+    const previewTable = previewScrollRef.current?.querySelector("table");
+    if (!previewTable) {
+      return;
+    }
+
+    const cellIndex = columnIndex + 1;
+    const nodes = previewTable.querySelectorAll<HTMLElement>(
+      `thead th:nth-child(${cellIndex}), tbody td:nth-child(${cellIndex})`,
+    );
+
+    let measuredWidth = 120;
+    nodes.forEach((node) => {
+      measuredWidth = Math.max(measuredWidth, Math.ceil(node.scrollWidth + 24));
+    });
+
+    updateColumn(columnIndex, {
+      width: Math.min(getPreviewResizeMaxWidth(columnIndex), measuredWidth),
+    });
   }
 
   function startPreviewResize(
@@ -526,7 +575,12 @@ export function TableEditor() {
     resizeStateRef.current = {
       columnIndex,
       startX: event.clientX,
-      startWidth: column.width ?? column.minWidth ?? 180,
+      startWidth:
+        event.currentTarget.parentElement?.getBoundingClientRect().width ??
+        column.width ??
+        column.minWidth ??
+        180,
+      maxWidth: getPreviewResizeMaxWidth(columnIndex),
     };
   }
 
@@ -708,7 +762,6 @@ export function TableEditor() {
                 {payload.columns.map((column, index) => (
                       <th
                         key={column.key}
-                        style={getColumnWidthStyle(column)}
                         draggable
                         onDragStart={() => setDraggedColumnIndex(index)}
                         onDragOver={(event) => {
@@ -794,9 +847,7 @@ export function TableEditor() {
                         <td className="table-editor-row-index-cell">{rowIndex + 1}</td>
                         {payload.columns.map((column) => (
                         <td key={`${row.id}-${column.key}`}>
-                          <div style={getColumnWidthStyle(column)}>
-                            {renderCellInput(row, column)}
-                          </div>
+                          {renderCellInput(row, column)}
                           </td>
                         ))}
                         <td className="table-editor-row-actions-cell">
@@ -921,8 +972,13 @@ export function TableEditor() {
             </div>
           </div>
           <div className="table-editor-module-preview">
-            <div className="table-editor-table-scroll table-editor-rendered-preview">
+            <div className="table-editor-table-scroll table-editor-rendered-preview" ref={previewScrollRef}>
               <table className="table-editor-preview-table table-editor-rendered-table">
+              <colgroup>
+                {normalizedPreviewPayload.columns.map((column) => (
+                  <col key={`preview-col-${column.key}`} style={getColumnWidthStyle(column)} />
+                ))}
+              </colgroup>
               <thead>
               <tr>
                 {normalizedPreviewPayload.columns.map((column, index) => (
@@ -932,6 +988,11 @@ export function TableEditor() {
                     <span
                       className="table-editor-column-resize-handle"
                       onMouseDown={(event) => startPreviewResize(event, index, column)}
+                      onDoubleClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        autoSizePreviewColumn(index);
+                      }}
                       role="separator"
                       aria-orientation="vertical"
                       aria-label={`Resize ${column.label} column`}
