@@ -142,9 +142,6 @@ export function TableEditor() {
     importedAt: string;
   } | null>(null);
   const [savedMessage, setSavedMessage] = useState("");
-  const [previewTitle, setPreviewTitle] = useState("Module Title");
-  const [previewCtaLabel, setPreviewCtaLabel] = useState("View Full List");
-  const [previewVariant, setPreviewVariant] = useState<"condensed" | "full">("full");
   const [payload, setPayload] = useState<InlineTablePayloadV1>(createEmptyPayload());
 
   useEffect(() => {
@@ -463,10 +460,29 @@ export function TableEditor() {
     setSavedMessage(`Saved at ${new Date().toLocaleTimeString()}.`);
   }
 
-  function autoGrowTextarea(event: FormEvent<HTMLTextAreaElement>) {
-    const element = event.currentTarget;
+  function expandTextarea(element: HTMLTextAreaElement) {
     element.style.height = "0px";
     element.style.height = `${element.scrollHeight}px`;
+  }
+
+  function autoGrowTextarea(event: FormEvent<HTMLTextAreaElement>) {
+    expandTextarea(event.currentTarget);
+  }
+
+  function getColumnWidthStyle(column: InlineTableColumn): { width?: number; minWidth?: number; maxWidth?: number } {
+    if (column.width && column.width > 0) {
+      return {
+        width: column.width,
+        minWidth: column.width,
+        maxWidth: column.width,
+      };
+    }
+
+    if (column.minWidth && column.minWidth > 0) {
+      return { minWidth: column.minWidth };
+    }
+
+    return {};
   }
 
   function renderCellInput(row: InlineTableRow, column: InlineTableColumn) {
@@ -502,6 +518,8 @@ export function TableEditor() {
           value={toInputValue(value)}
           onChange={(event) => updateCell(row.id, column, event.target.value)}
           onInput={autoGrowTextarea}
+          onFocus={(event) => expandTextarea(event.currentTarget)}
+          onDoubleClick={(event) => expandTextarea(event.currentTarget)}
           placeholder={column.label}
         />
       );
@@ -645,6 +663,7 @@ export function TableEditor() {
                 {payload.columns.map((column, index) => (
                       <th
                         key={column.key}
+                        style={getColumnWidthStyle(column)}
                         draggable
                         onDragStart={() => setDraggedColumnIndex(index)}
                         onDragOver={(event) => {
@@ -729,8 +748,10 @@ export function TableEditor() {
                       <tr key={row.id}>
                         <td className="table-editor-row-index-cell">{rowIndex + 1}</td>
                         {payload.columns.map((column) => (
-                          <td key={`${row.id}-${column.key}`}>
+                        <td key={`${row.id}-${column.key}`}>
+                          <div style={getColumnWidthStyle(column)}>
                             {renderCellInput(row, column)}
+                          </div>
                           </td>
                         ))}
                         <td className="table-editor-row-actions-cell">
@@ -808,9 +829,24 @@ export function TableEditor() {
                       <option value="right">right</option>
                     </select>
                   </label>
+                  <label>
+                    <span>Width (px)</span>
+                    <input
+                      type="number"
+                      min={80}
+                      step={10}
+                      value={selectedColumn.width ?? ""}
+                      onChange={(event) =>
+                        updateColumn(selectedColumnIndex, {
+                          width: event.target.value ? Number(event.target.value) : null,
+                        })
+                      }
+                      placeholder="Auto"
+                    />
+                  </label>
 
                   <div className="table-editor-column-note muted">
-                    The first column is pinned automatically. Reorder directly in the grid by dragging the header.
+                    The first column is pinned automatically. Reorder directly in the grid by dragging the header. Width updates affect the live grid and preview.
                   </div>
 
                   <div className="table-editor-column-sidebar-actions">
@@ -841,36 +877,6 @@ export function TableEditor() {
               </p>
             </div>
           </div>
-          <div className="table-editor-preview-controls">
-            <label>
-              <span>Preview title</span>
-              <input
-                value={previewTitle}
-                onChange={(event) => setPreviewTitle(event.target.value)}
-                placeholder="Module Title"
-              />
-            </label>
-            <label>
-              <span>Preview style</span>
-              <select
-                value={previewVariant}
-                onChange={(event) =>
-                  setPreviewVariant(event.target.value as "condensed" | "full")
-                }
-              >
-                <option value="full">Full</option>
-                <option value="condensed">Condensed</option>
-              </select>
-            </label>
-            <label>
-              <span>CTA label</span>
-              <input
-                value={previewCtaLabel}
-                onChange={(event) => setPreviewCtaLabel(event.target.value)}
-                placeholder="View Full List"
-              />
-            </label>
-          </div>
           <div className="table-editor-preview-summary">
             <div className="table-editor-preview-chip">
               <span className="table-editor-preview-chip-label">Columns</span>
@@ -885,16 +891,13 @@ export function TableEditor() {
               <strong>Inline</strong>
             </div>
           </div>
-          <div className={`table-editor-module-preview table-editor-module-preview--${previewVariant}`}>
-            <div className="table-editor-module-header">
-              <h3>{previewTitle || "Module Title"}</h3>
-            </div>
+          <div className="table-editor-module-preview">
             <div className="table-editor-table-scroll table-editor-rendered-preview">
               <table className="table-editor-preview-table table-editor-rendered-table">
               <thead>
               <tr>
                 {normalizedPreviewPayload.columns.map((column) => (
-                  <th key={`preview-${column.key}`}>
+                  <th key={`preview-${column.key}`} style={getColumnWidthStyle(column)}>
                     <span className="table-editor-rendered-head-label">{column.label}</span>
                     <span className="table-editor-rendered-head-meta">{column.type}</span>
                   </th>
@@ -915,7 +918,7 @@ export function TableEditor() {
                 normalizedPreviewPayload.rows.slice(0, 8).map((row) => (
                   <tr key={`rendered-${row.id}`}>
                     {normalizedPreviewPayload.columns.map((column) => (
-                        <td key={`rendered-${row.id}-${column.key}`}>
+                        <td key={`rendered-${row.id}-${column.key}`} style={getColumnWidthStyle(column)}>
                         <div className="table-editor-rendered-cell">
                           <span className="table-editor-rendered-cell-primary">
                             {formatPreviewCell(column, row[column.key])}
@@ -929,13 +932,6 @@ export function TableEditor() {
             </tbody>
           </table>
             </div>
-            {previewCtaLabel.trim() ? (
-              <div className="table-editor-module-footer">
-                <button type="button" className="table-editor-module-cta">
-                  {previewCtaLabel}
-                </button>
-              </div>
-            ) : null}
         </div>
       </section>
 
