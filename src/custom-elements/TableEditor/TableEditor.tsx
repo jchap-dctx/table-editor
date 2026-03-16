@@ -5,7 +5,7 @@ import type {
   FormEvent,
 } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useIsDisabled, useValue } from "../../context";
+import { useIsDisabled, useItemInfo, useValue, useVariantInfo } from "../../context";
 import { parseCsvFile } from "./csv";
 import {
   buildPayloadFromGrid,
@@ -102,6 +102,8 @@ export function TableEditor() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [storedValue, setStoredValue] = useValue();
   const isDisabled = useIsDisabled();
+  const item = useItemInfo();
+  const variant = useVariantInfo();
 
   const [isLoading, setIsLoading] = useState(true);
   const [loadWarnings, setLoadWarnings] = useState<string[]>([]);
@@ -119,17 +121,62 @@ export function TableEditor() {
     columnCount: number;
     importedAt: string;
   } | null>(null);
+  const [lastImportStatus, setLastImportStatus] = useState<"idle" | "success" | "too-large">("idle");
   const [payload, setPayload] = useState<InlineTablePayloadV1>(createEmptyPayload());
   const [hasUserChanges, setHasUserChanges] = useState(false);
+  const storageKey = useMemo(
+    () => `table-editor-draft:${item.id}:${variant.codename}:${window.location.pathname}`,
+    [item.id, variant.codename],
+  );
 
   useEffect(() => {
     const parsed = parseStoredPayload(storedValue);
-    setPayload(parsed.payload);
+    let nextPayload = parsed.payload;
+    let nextImport: typeof lastImport = null;
+    let nextImportStatus: typeof lastImportStatus = "idle";
+
+    const serializedDraft = window.localStorage.getItem(storageKey);
+    if (serializedDraft) {
+      try {
+        const draft = JSON.parse(serializedDraft) as {
+          payload?: InlineTablePayloadV1;
+          lastImport?: typeof lastImport;
+          lastImportStatus?: typeof lastImportStatus;
+        };
+
+        if (draft.payload) {
+          nextPayload = draft.payload;
+        }
+        nextImport = draft.lastImport ?? null;
+        nextImportStatus = draft.lastImportStatus ?? "idle";
+      } catch (error) {
+        console.warn("Unable to restore table editor draft state.", error);
+      }
+    }
+
+    setPayload(nextPayload);
     setLoadWarnings(parsed.warnings);
+    setLastImport(nextImport);
+    setLastImportStatus(nextImportStatus);
     setSelectedColumnIndex(0);
     setHasUserChanges(false);
     setIsLoading(false);
-  }, [storedValue]);
+  }, [storageKey, storedValue]);
+
+  useEffect(() => {
+    if (isLoading) {
+      return;
+    }
+
+    window.localStorage.setItem(
+      storageKey,
+      JSON.stringify({
+        payload,
+        lastImport,
+        lastImportStatus,
+      }),
+    );
+  }, [isLoading, lastImport, lastImportStatus, payload, storageKey]);
 
   useEffect(() => {
     const nextHeight = rootRef.current?.getBoundingClientRect().height;
@@ -180,12 +227,9 @@ export function TableEditor() {
       return;
     }
 
-    const timeoutId = window.setTimeout(() => {
-      setStoredValue(serializedPayload);
-      setHasUserChanges(false);
-    }, 300);
-
-    return () => window.clearTimeout(timeoutId);
+    setStoredValue(serializedPayload);
+    setLastImportStatus("success");
+    setHasUserChanges(false);
   }, [
     hasUserChanges,
     isDisabled,
@@ -352,6 +396,7 @@ export function TableEditor() {
     if (normalized.columns.length === 0) {
       setImportErrors(["Imported data did not contain parseable tabular values."]);
       setLastImport(null);
+      setLastImportStatus("idle");
       return;
     }
 
@@ -381,10 +426,12 @@ export function TableEditor() {
     if (nextScale.exceedsInlineLimit) {
       setStoredValue(null);
       setImportErrors([]);
+      setLastImportStatus("too-large");
       return;
     }
 
     setImportErrors([]);
+    setLastImportStatus("success");
   }
 
   function getColumnPresentationStyle(
@@ -425,6 +472,7 @@ export function TableEditor() {
     if (parsed.errors.length > 0) {
       setImportErrors(parsed.errors);
       setLastImport(null);
+      setLastImportStatus("idle");
       return;
     }
 
@@ -442,6 +490,7 @@ export function TableEditor() {
     if (!file || !file.name.toLowerCase().endsWith(".csv")) {
       setImportErrors(["Drop a .csv file to import data."]);
       setLastImport(null);
+      setLastImportStatus("idle");
       return;
     }
 
@@ -449,6 +498,7 @@ export function TableEditor() {
     if (parsed.errors.length > 0) {
       setImportErrors(parsed.errors);
       setLastImport(null);
+      setLastImportStatus("idle");
       return;
     }
 
@@ -652,7 +702,7 @@ export function TableEditor() {
               </div>
             </div>
 
-            {lastImport && !scale.exceedsInlineLimit ? (
+            {lastImport && lastImportStatus === "success" && !scale.exceedsInlineLimit ? (
             <div className="table-editor-ok table-editor-import-summary" role="status" aria-live="polite">
               Imported successfully from <strong>{lastImport.source.toUpperCase()}</strong> at {lastImport.importedAt}.{" "}
                 {lastImport.rowCount} rows and {lastImport.columnCount} columns are ready.
@@ -855,21 +905,6 @@ export function TableEditor() {
                       <option value="center">center</option>
                       <option value="right">right</option>
                     </select>
-                  </label>
-                  <label>
-                    <span>Width (optional)</span>
-                    <input
-                      type="number"
-                      min={80}
-                      step={10}
-                      placeholder="Auto"
-                      value={selectedColumn.width ?? ""}
-                      onChange={(event) =>
-                        updateColumn(selectedColumnIndex, {
-                          width: event.target.value ? Number(event.target.value) : null,
-                        })
-                      }
-                    />
                   </label>
                   <div className="table-editor-column-note muted">
                     The first column is pinned automatically. Reorder in the grid by dragging the header,

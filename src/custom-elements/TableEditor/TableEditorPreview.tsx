@@ -143,26 +143,6 @@ export function TableEditorPreview() {
 
   return (
     <div className="table-editor-root table-editor-preview-page">
-      {parsed.warnings.length > 0 ? (
-        <div className="table-editor-warn table-editor-status">
-          {parsed.warnings.map((warning) => (
-            <p key={warning}>{warning}</p>
-          ))}
-        </div>
-      ) : null}
-      {sourceElementCodenames.length === 0 ? (
-        <div className="table-editor-warn table-editor-status">
-          <p>
-            Add <code>sourceElementCodename</code> in this custom element&apos;s JSON parameters to point at
-            the inline table field you want to preview.
-          </p>
-        </div>
-      ) : null}
-      {payload.columns.length === 0 && parsed.warnings.length === 0 ? (
-        <div className="table-editor-warn table-editor-status">
-          <p>No table payload is available in the linked inline table field yet.</p>
-        </div>
-      ) : null}
       <section className={`table-editor-module-preview ${variantClassName}`}>
         <div className="table-editor-module-frame">
           {title || caption ? (
@@ -171,18 +151,7 @@ export function TableEditorPreview() {
               {caption ? <p className="table-editor-module-caption">{caption}</p> : null}
             </div>
           ) : null}
-          {payload.columns.length > 0 ? (
-            <>
-              {variantClassName === "is-full" ? (
-                <div className="table-editor-module-controls" aria-hidden="true">
-                  <div className="table-editor-module-search">Search</div>
-                  <div className="table-editor-module-filter">Class</div>
-                  <div className="table-editor-module-filter">Week</div>
-                </div>
-              ) : null}
-              <div className="table-editor-module-rule" aria-hidden="true" />
-            </>
-          ) : null}
+          {payload.columns.length > 0 ? <div className="table-editor-module-rule" aria-hidden="true" /> : null}
           <div className="table-editor-table-scroll table-editor-rendered-preview">
             <table className="table-editor-preview-table table-editor-rendered-table">
               <colgroup>
