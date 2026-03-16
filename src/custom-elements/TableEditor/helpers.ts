@@ -23,7 +23,7 @@ export function createDefaultColumn(label: string, key: string, type: InlineColu
     label,
     type,
     sortable: true,
-    searchable: type === "text" || type === "link",
+    searchable: false,
     pinnable: true,
     pinned: false,
     align: type === "number" ? "right" : "left",
@@ -356,7 +356,13 @@ export function buildPayloadFromGrid(input: {
   metadata?: Record<string, unknown>;
 }): InlineTablePayloadV1 {
   const usedKeys = new Set<string>();
-  const normalizedColumns = input.columns.map((column, index) => sanitizeColumn(column, usedKeys, index));
+  const normalizedColumns = input.columns.map((column, index) => {
+    const sanitized = sanitizeColumn(column, usedKeys, index);
+    return {
+      ...sanitized,
+      pinned: index === 0,
+    };
+  });
 
   const normalizedRows = input.rows.map((row, index) => {
     const next: InlineTableRow = {

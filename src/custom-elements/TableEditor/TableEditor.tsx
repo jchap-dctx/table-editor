@@ -1,4 +1,4 @@
-import type { ChangeEvent, ClipboardEvent, DragEvent } from "react";
+import type { ChangeEvent, ClipboardEvent as ReactClipboardEvent, DragEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useIsDisabled, useValue } from "../../context";
 import { parseCsvFile } from "./csv";
@@ -78,6 +78,20 @@ function syncRowsToColumns(rows: InlineTableRow[], columns: InlineTableColumn[])
   });
 }
 
+function isEditablePasteTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  const tagName = target.tagName;
+  return (
+    target.isContentEditable ||
+    tagName === "INPUT" ||
+    tagName === "TEXTAREA" ||
+    tagName === "SELECT"
+  );
+}
+
 export function TableEditor() {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -87,11 +101,14 @@ export function TableEditor() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadWarnings, setLoadWarnings] = useState<string[]>([]);
   const [importErrors, setImportErrors] = useState<string[]>([]);
-  const [importMessage, setImportMessage] = useState<string>("Paste spreadsheet data or upload a .csv file.");
-  const [firstRowIsHeader, setFirstRowIsHeader] = useState(true);
+  const [importMessage, setImportMessage] = useState<string>(
+    "Drop a CSV or paste spreadsheet data anywhere on the page. The first row is always used as headers.",
+  );
   const [rawPasteText, setRawPasteText] = useState("");
   const [isDragOver, setIsDragOver] = useState(false);
   const [showPasteArea, setShowPasteArea] = useState(false);
+  const [draggedColumnIndex, setDraggedColumnIndex] = useState<number | null>(null);
+  const [selectedColumnIndex, setSelectedColumnIndex] = useState<number>(0);
   const [lastImport, setLastImport] = useState<{
     source: "paste" | "csv";
     rowCount: number;
@@ -105,6 +122,7 @@ export function TableEditor() {
     const parsed = parseStoredPayload(storedValue);
     setPayload(parsed.payload);
     setLoadWarnings(parsed.warnings);
+    setSelectedColumnIndex(0);
     setIsLoading(false);
   }, [storedValue]);
 
@@ -115,10 +133,37 @@ export function TableEditor() {
     }
 
     CustomElement.setHeight(Math.ceil(nextHeight + 24));
-  }, [payload, importErrors, loadWarnings, isLoading, savedMessage]);
+  }, [payload, importErrors, loadWarnings, isLoading, savedMessage, showPasteArea, selectedColumnIndex]);
 
-  const validation = useMemo(() => validatePayload(payload, { importErrors }), [payload, importErrors]);
+  useEffect(() => {
+    if (payload.columns.length === 0) {
+      setSelectedColumnIndex(0);
+      return;
+    }
+
+    if (selectedColumnIndex > payload.columns.length - 1) {
+      setSelectedColumnIndex(payload.columns.length - 1);
+    }
+  }, [payload.columns.length, selectedColumnIndex]);
+
+  const validation = useMemo(
+    () => validatePayload(payload, { importErrors }),
+    [payload, importErrors],
+  );
   const scale = useMemo(() => estimatePayloadScale(payload), [payload]);
+  const normalizedPreviewPayload = useMemo(
+    () =>
+      buildPayloadFromGrid({
+        tableId: payload.tableId,
+        columns: payload.columns,
+        rows: payload.rows,
+        metadata: payload.metadata,
+      }),
+    [payload],
+  );
+  const savedPayloadString =
+    typeof storedValue === "string" && storedValue.trim() ? storedValue : null;
+  const selectedColumn = payload.columns[selectedColumnIndex] ?? null;
 
   const canSave = !isDisabled && !isLoading && validation.isValid && !scale.exceedsInlineLimit;
 
@@ -139,7 +184,9 @@ export function TableEditor() {
       key = normalizeHeaderToKey(`column_${index}`);
     }
 
-    updateColumns([...payload.columns, createDefaultColumn(`Column ${index}`, key)]);
+    const nextColumns = [...payload.columns, createDefaultColumn(`Column ${index}`, key)];
+    updateColumns(nextColumns);
+    setSelectedColumnIndex(nextColumns.length - 1);
   }
 
   function setColumnKey(columnIndex: number, requestedKey: string) {
@@ -149,8 +196,14 @@ export function TableEditor() {
       return;
     }
 
-    const baseKey = normalizeHeaderToKey(requestedKey || target.label || `column_${columnIndex + 1}`);
-    const used = new Set(nextColumns.map((column, index) => (index === columnIndex ? "" : column.key)).filter(Boolean));
+    const baseKey = normalizeHeaderToKey(
+      requestedKey || target.label || `column_${columnIndex + 1}`,
+    );
+    const used = new Set(
+      nextColumns
+        .map((column, index) => (index === columnIndex ? "" : column.key))
+        .filter(Boolean),
+    );
 
     let uniqueKey = baseKey;
     let suffix = 2;
@@ -170,6 +223,7 @@ export function TableEditor() {
           [uniqueKey]: oldValue ?? null,
         } as InlineTableRow;
       });
+
       return {
         ...current,
         columns: nextColumns,
@@ -179,7 +233,9 @@ export function TableEditor() {
   }
 
   function updateColumn(columnIndex: number, partial: Partial<InlineTableColumn>) {
-    const nextColumns = payload.columns.map((column, index) => (index === columnIndex ? { ...column, ...partial } : column));
+    const nextColumns = payload.columns.map((column, index) =>
+      index === columnIndex ? { ...column, ...partial } : column,
+    );
     updateColumns(nextColumns);
   }
 
@@ -213,6 +269,19 @@ export function TableEditor() {
     const [column] = nextColumns.splice(columnIndex, 1);
     nextColumns.splice(nextIndex, 0, column);
     updateColumns(nextColumns);
+    setSelectedColumnIndex(nextIndex);
+  }
+
+  function reorderColumns(sourceIndex: number, destinationIndex: number) {
+    if (sourceIndex === destinationIndex) {
+      return;
+    }
+
+    const nextColumns = [...payload.columns];
+    const [column] = nextColumns.splice(sourceIndex, 1);
+    nextColumns.splice(destinationIndex, 0, column);
+    updateColumns(nextColumns);
+    setSelectedColumnIndex(destinationIndex);
   }
 
   function addRow() {
@@ -226,14 +295,6 @@ export function TableEditor() {
     setPayload((current) => ({
       ...current,
       rows: current.rows.filter((row) => row.id !== rowId),
-    }));
-  }
-
-  function updateRowId(currentId: string, nextId: string) {
-    const normalized = nextId.trim() || currentId;
-    setPayload((current) => ({
-      ...current,
-      rows: current.rows.map((row) => (row.id === currentId ? { ...row, id: normalized } : row)),
     }));
   }
 
@@ -252,7 +313,7 @@ export function TableEditor() {
   }
 
   function applyImportedMatrix(matrix: string[][], source: "paste" | "csv") {
-    const normalized = inferColumnsFromTabularData(matrix, firstRowIsHeader);
+    const normalized = inferColumnsFromTabularData(matrix, true);
     if (normalized.columns.length === 0) {
       setImportErrors(["Imported data did not contain parseable tabular values."]);
       return;
@@ -268,26 +329,38 @@ export function TableEditor() {
     );
 
     setImportErrors([]);
-    setImportMessage(`Imported ${normalized.rows.length} rows and ${normalized.columns.length} columns from ${source}.`);
+    setImportMessage(
+      `Imported ${normalized.rows.length} rows and ${normalized.columns.length} columns from ${source}.`,
+    );
     setLastImport({
       source,
       rowCount: normalized.rows.length,
       columnCount: normalized.columns.length,
       importedAt: new Date().toLocaleTimeString(),
     });
+    setSelectedColumnIndex(0);
+  }
+
+  function importTabularText(text: string, source: "paste" | "csv") {
+    const matrix = parseTabularText(text);
+    if (matrix.length === 0) {
+      setImportErrors(["Pasted content is empty or could not be parsed as a table."]);
+      return;
+    }
+
+    applyImportedMatrix(matrix, source);
   }
 
   function handlePasteFromTextarea() {
-    const matrix = parseTabularText(rawPasteText);
-    if (matrix.length === 0) {
-      setImportErrors(["Paste area is empty or not parseable."]);
-      return;
-    }
-    applyImportedMatrix(matrix, "paste");
+    importTabularText(rawPasteText, "paste");
     setRawPasteText("");
   }
 
-  function handlePaste(event: ClipboardEvent<HTMLTextAreaElement>) {
+  function handleRootPaste(event: ReactClipboardEvent<HTMLDivElement>) {
+    if (isEditablePasteTarget(event.target)) {
+      return;
+    }
+
     const clipboard = event.clipboardData.getData("text/plain");
     if (!clipboard.trim()) {
       return;
@@ -295,7 +368,6 @@ export function TableEditor() {
 
     const matrix = parseTabularText(clipboard);
     if (matrix.length === 0) {
-      setImportErrors(["Clipboard data is not parseable as a table."]);
       return;
     }
 
@@ -386,7 +458,15 @@ export function TableEditor() {
     if (column.type === "boolean") {
       return (
         <select
-          value={value === null ? "" : value === true ? "true" : value === false ? "false" : String(value)}
+          value={
+            value === null
+              ? ""
+              : value === true
+                ? "true"
+                : value === false
+                  ? "false"
+                  : String(value)
+          }
           onChange={(event) => updateCell(row.id, column, event.target.value)}
         >
           <option value="">Unset</option>
@@ -398,7 +478,15 @@ export function TableEditor() {
 
     return (
       <input
-        type={column.type === "number" ? "text" : column.type === "date" ? "date" : column.type === "link" ? "url" : "text"}
+        type={
+          column.type === "number"
+            ? "text"
+            : column.type === "date"
+              ? "date"
+              : column.type === "link"
+                ? "url"
+                : "text"
+        }
         value={toInputValue(value)}
         onChange={(event) => updateCell(row.id, column, event.target.value)}
       />
@@ -406,12 +494,14 @@ export function TableEditor() {
   }
 
   return (
-    <div className="table-editor-root" ref={rootRef}>
+    <div className="table-editor-root" ref={rootRef} onPasteCapture={handleRootPaste}>
       <header className="table-editor-header">
         <div>
           <p className="eyebrow">Custom Element / Inline Mode</p>
           <h1>Table Editor</h1>
-          <p className="muted">Inline-only table authoring for small and medium datasets.</p>
+          <p className="muted">
+            Import a CSV or paste spreadsheet data, then shape the table directly in the live grid.
+          </p>
         </div>
         <div className="table-editor-actions">
           <button type="button" className="primary" onClick={savePayload} disabled={!canSave}>
@@ -432,41 +522,27 @@ export function TableEditor() {
 
       <fieldset disabled={isDisabled || isLoading} className="table-editor-fieldset">
         <section className="table-editor-panel">
-          <div className="table-editor-grid two-up">
-            <label>
-              <span>Table ID</span>
-              <input
-                value={payload.tableId}
-                onChange={(event) =>
-                  setPayload((current) => ({
-                    ...current,
-                    tableId: normalizeHeaderToKey(event.target.value),
-                  }))
-                }
-              />
-            </label>
-            <div className="table-editor-import-settings">
-              <label className="table-editor-inline-checkbox">
-                <input
-                  type="checkbox"
-                  checked={firstRowIsHeader}
-                  onChange={(event) => setFirstRowIsHeader(event.target.checked)}
-                />
-                <span>Treat first imported row as header</span>
-              </label>
+          <div className="table-editor-upload-shell">
+            <div className="table-editor-upload-copy">
+              <h2>Import table data</h2>
+              <p className="muted">
+                Drop a CSV file, click to upload, or paste spreadsheet data anywhere on this page.
+                The first row is always treated as the header row.
+              </p>
             </div>
           </div>
 
           <div className="table-editor-import-grid">
             <div className="table-editor-upload-card">
-              <p className="table-editor-upload-title">Drop CSV file here</p>
-              <p className="muted table-editor-upload-subtitle">or click to upload</p>
-              <button
-                type="button"
-                onClick={openFilePicker}
-                className="table-editor-upload-cta"
-              >
-                Click to upload
+              <div className="table-editor-upload-icon" aria-hidden="true">
+                ↑
+              </div>
+              <p className="table-editor-upload-title">Click to upload or drag and drop</p>
+              <p className="muted table-editor-upload-subtitle">
+                CSV only. Paste from Sheets/Excel works anywhere on the canvas.
+              </p>
+              <button type="button" onClick={openFilePicker} className="table-editor-upload-cta">
+                Choose CSV
               </button>
               <input
                 ref={fileInputRef}
@@ -492,29 +568,32 @@ export function TableEditor() {
                 aria-disabled={isDisabled}
                 aria-label="Upload CSV file by click or drag and drop"
               >
-                Drag and drop a .csv file here
+                Drop CSV here
               </div>
             </div>
 
             <div className="table-editor-import-actions">
               <button type="button" onClick={() => setShowPasteArea((current) => !current)}>
-                {showPasteArea ? "Hide paste input" : "Paste from Google Sheets/Excel instead"}
+                {showPasteArea ? "Hide manual paste" : "Open manual paste fallback"}
               </button>
             </div>
 
             {showPasteArea ? (
               <div className="table-editor-paste-panel">
                 <label>
-                  <span>Paste tabular text</span>
+                  <span>Paste spreadsheet data manually</span>
                   <textarea
                     rows={5}
                     value={rawPasteText}
-                    onPaste={handlePaste}
                     onChange={(event) => setRawPasteText(event.target.value)}
                     placeholder="Paste table data from Google Sheets or Excel"
                   />
                 </label>
-                <button type="button" onClick={handlePasteFromTextarea} disabled={!rawPasteText.trim()}>
+                <button
+                  type="button"
+                  onClick={handlePasteFromTextarea}
+                  disabled={!rawPasteText.trim()}
+                >
                   Import pasted text
                 </button>
               </div>
@@ -527,69 +606,150 @@ export function TableEditor() {
               </div>
             ) : (
               <div className="table-editor-import-summary muted">
-                Import a CSV or paste spreadsheet data to generate the table automatically.
+                Start with CSV or paste, then refine the grid directly below.
               </div>
             )}
 
-            <div className="table-editor-inline-preview">
-              <p className="table-editor-preview-label">Quick preview</p>
-              <div className="table-editor-table-scroll">
-                <table className="table-editor-preview-table">
-                  <thead>
-                    <tr>
-                      {payload.columns.slice(0, 6).map((column) => (
-                        <th key={`import-preview-${column.key}`}>{column.label}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {payload.rows.length === 0 || payload.columns.length === 0 ? (
-                      <tr>
-                        <td colSpan={Math.max(payload.columns.slice(0, 6).length, 1)} className="table-editor-empty-preview">
-                          No table data loaded yet. Import a CSV or paste spreadsheet data to preview rows here.
-                        </td>
-                      </tr>
-                    ) : (
-                      payload.rows.slice(0, 3).map((row) => (
-                        <tr key={`import-preview-row-${row.id}`}>
-                          {payload.columns.slice(0, 6).map((column) => (
-                            <td key={`import-preview-${row.id}-${column.key}`}>{toInputValue(row[column.key])}</td>
-                          ))}
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
             <p className="muted">{importMessage}</p>
           </div>
         </section>
 
         <section className="table-editor-panel">
           <div className="table-editor-section-header">
-            <h2>Columns</h2>
-            <button type="button" onClick={addColumn}>
-              Add column
-            </button>
+            <div>
+              <h2>Live table builder</h2>
+              <p className="muted">
+                Edit values inline, drag headers to reorder columns, and use the side panel for column settings.
+              </p>
+            </div>
+            <div className="table-editor-builder-actions">
+              <button type="button" onClick={addColumn}>
+                Add column
+              </button>
+              <button type="button" onClick={addRow}>
+                Add row
+              </button>
+            </div>
           </div>
-          <div className="table-editor-column-list">
-            {payload.columns.map((column, index) => (
-              <article className="table-editor-column-card" key={column.key}>
-                <div className="table-editor-column-row">
+
+          <div className="table-editor-builder-layout">
+            <div className="table-editor-table-scroll table-editor-builder-grid">
+              <table className="table-editor-grid-table table-editor-live-grid">
+                <thead>
+                  <tr>
+                    <th className="table-editor-row-index-head">#</th>
+                    {payload.columns.map((column, index) => (
+                      <th
+                        key={column.key}
+                        draggable
+                        onDragStart={() => setDraggedColumnIndex(index)}
+                        onDragOver={(event) => event.preventDefault()}
+                        onDrop={() => {
+                          if (draggedColumnIndex === null) {
+                            return;
+                          }
+                          reorderColumns(draggedColumnIndex, index);
+                          setDraggedColumnIndex(null);
+                        }}
+                        onDragEnd={() => setDraggedColumnIndex(null)}
+                        className={
+                          index === selectedColumnIndex
+                            ? "table-editor-column-head is-selected"
+                            : "table-editor-column-head"
+                        }
+                      >
+                        <button
+                          type="button"
+                          className="table-editor-column-surface"
+                          onClick={() => setSelectedColumnIndex(index)}
+                        >
+                          <span className="table-editor-column-drag" aria-hidden="true">
+                            ≡
+                          </span>
+                          <input
+                            value={column.label}
+                            onChange={(event) => updateColumn(index, { label: event.target.value })}
+                            onClick={(event) => event.stopPropagation()}
+                            className="table-editor-column-label-input"
+                            aria-label={`Column ${index + 1} label`}
+                          />
+                          <span className="table-editor-column-meta">
+                            {column.type} · {column.key}
+                          </span>
+                        </button>
+                      </th>
+                    ))}
+                    <th className="table-editor-row-actions-head">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {payload.rows.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={payload.columns.length + 2}
+                        className="table-editor-empty-preview"
+                      >
+                        No rows yet. Import a dataset or add rows manually.
+                      </td>
+                    </tr>
+                  ) : (
+                    payload.rows.map((row, rowIndex) => (
+                      <tr key={row.id}>
+                        <td className="table-editor-row-index-cell">{rowIndex + 1}</td>
+                        {payload.columns.map((column) => (
+                          <td key={`${row.id}-${column.key}`}>
+                            {renderCellInput(row, column)}
+                          </td>
+                        ))}
+                        <td className="table-editor-row-actions-cell">
+                          <button type="button" onClick={() => removeRow(row.id)}>
+                            Remove
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <aside className="table-editor-column-sidebar">
+              <div className="table-editor-column-sidebar-header">
+                <h3>Selected column</h3>
+                {selectedColumn ? (
+                  <span className="table-editor-column-badge">
+                    {selectedColumnIndex + 1} / {payload.columns.length}
+                  </span>
+                ) : null}
+              </div>
+
+              {selectedColumn ? (
+                <div className="table-editor-column-sidebar-form">
                   <label>
                     <span>Label</span>
-                    <input value={column.label} onChange={(event) => updateColumn(index, { label: event.target.value })} />
+                    <input
+                      value={selectedColumn.label}
+                      onChange={(event) =>
+                        updateColumn(selectedColumnIndex, { label: event.target.value })
+                      }
+                    />
                   </label>
                   <label>
                     <span>Key</span>
-                    <input value={column.key} onChange={(event) => setColumnKey(index, event.target.value)} />
+                    <input
+                      value={selectedColumn.key}
+                      onChange={(event) => setColumnKey(selectedColumnIndex, event.target.value)}
+                    />
                   </label>
                   <label>
                     <span>Type</span>
                     <select
-                      value={column.type}
-                      onChange={(event) => updateColumn(index, { type: event.target.value as InlineColumnType })}
+                      value={selectedColumn.type}
+                      onChange={(event) =>
+                        updateColumn(selectedColumnIndex, {
+                          type: event.target.value as InlineColumnType,
+                        })
+                      }
                     >
                       <option value="text">text</option>
                       <option value="number">number</option>
@@ -598,175 +758,102 @@ export function TableEditor() {
                       <option value="boolean">boolean</option>
                     </select>
                   </label>
-                </div>
-
-                <div className="table-editor-column-row compact">
                   <label>
                     <span>Align</span>
-                    <select value={column.align} onChange={(event) => updateColumn(index, { align: event.target.value as InlineTableColumn["align"] })}>
+                    <select
+                      value={selectedColumn.align}
+                      onChange={(event) =>
+                        updateColumn(selectedColumnIndex, {
+                          align: event.target.value as InlineTableColumn["align"],
+                        })
+                      }
+                    >
                       <option value="left">left</option>
                       <option value="center">center</option>
                       <option value="right">right</option>
                     </select>
                   </label>
-                  <label>
-                    <span>Mobile Priority</span>
-                    <input
-                      type="number"
-                      min={1}
-                      value={column.mobilePriority}
-                      onChange={(event) => updateColumn(index, { mobilePriority: Number(event.target.value) || 1 })}
-                    />
-                  </label>
-                  <label>
-                    <span>Width</span>
-                    <input
-                      type="number"
-                      min={0}
-                      value={column.width ?? ""}
-                      onChange={(event) => updateColumn(index, { width: event.target.value ? Number(event.target.value) : null })}
-                    />
-                  </label>
-                  <label>
-                    <span>Min Width</span>
-                    <input
-                      type="number"
-                      min={0}
-                      value={column.minWidth ?? ""}
-                      onChange={(event) => updateColumn(index, { minWidth: event.target.value ? Number(event.target.value) : null })}
-                    />
-                  </label>
-                  <label>
-                    <span>Formatter</span>
-                    <input
-                      value={column.formatter ?? ""}
-                      onChange={(event) => updateColumn(index, { formatter: event.target.value || null })}
-                    />
-                  </label>
-                </div>
 
-                <div className="table-editor-toggle-row">
-                  <label className="table-editor-inline-checkbox">
-                    <input
-                      type="checkbox"
-                      checked={column.sortable}
-                      onChange={(event) => updateColumn(index, { sortable: event.target.checked })}
-                    />
-                    <span>sortable</span>
-                  </label>
-                  <label className="table-editor-inline-checkbox">
-                    <input
-                      type="checkbox"
-                      checked={column.searchable}
-                      onChange={(event) => updateColumn(index, { searchable: event.target.checked })}
-                    />
-                    <span>searchable</span>
-                  </label>
-                  <label className="table-editor-inline-checkbox">
-                    <input
-                      type="checkbox"
-                      checked={column.pinnable}
-                      onChange={(event) => updateColumn(index, { pinnable: event.target.checked })}
-                    />
-                    <span>pinnable</span>
-                  </label>
-                  <label className="table-editor-inline-checkbox">
-                    <input
-                      type="checkbox"
-                      checked={column.pinned}
-                      onChange={(event) => updateColumn(index, { pinned: event.target.checked })}
-                    />
-                    <span>pinned</span>
-                  </label>
-                  <label className="table-editor-inline-checkbox">
-                    <input
-                      type="checkbox"
-                      checked={column.visible}
-                      onChange={(event) => updateColumn(index, { visible: event.target.checked })}
-                    />
-                    <span>visible</span>
-                  </label>
-                </div>
+                  <div className="table-editor-column-note muted">
+                    The first column is pinned automatically. Sort/search/visibility options are
+                    using MVP defaults for now.
+                  </div>
 
-                <div className="table-editor-column-actions">
-                  <button type="button" onClick={() => moveColumn(index, -1)} disabled={index === 0}>
-                    Move left
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => moveColumn(index, 1)}
-                    disabled={index === payload.columns.length - 1}
-                  >
-                    Move right
-                  </button>
-                  <button type="button" onClick={() => removeColumn(index)}>
-                    Delete
-                  </button>
+                  <div className="table-editor-column-sidebar-actions">
+                    <button
+                      type="button"
+                      onClick={() => moveColumn(selectedColumnIndex, -1)}
+                      disabled={selectedColumnIndex === 0}
+                    >
+                      Move left
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveColumn(selectedColumnIndex, 1)}
+                      disabled={selectedColumnIndex === payload.columns.length - 1}
+                    >
+                      Move right
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeColumn(selectedColumnIndex)}
+                    >
+                      Delete column
+                    </button>
+                  </div>
                 </div>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section className="table-editor-panel">
-          <div className="table-editor-section-header">
-            <h2>Rows</h2>
-            <button type="button" onClick={addRow}>
-              Add row
-            </button>
-          </div>
-          <div className="table-editor-table-scroll">
-            <table className="table-editor-grid-table">
-              <thead>
-                <tr>
-                  <th>id</th>
-                  {payload.columns.map((column) => (
-                    <th key={column.key}>{column.label}</th>
-                  ))}
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {payload.rows.map((row) => (
-                  <tr key={row.id}>
-                    <td>
-                      <input value={row.id} onChange={(event) => updateRowId(row.id, event.target.value)} />
-                    </td>
-                    {payload.columns.map((column) => (
-                      <td key={`${row.id}-${column.key}`}>{renderCellInput(row, column)}</td>
-                    ))}
-                    <td>
-                      <button type="button" onClick={() => removeRow(row.id)}>
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+              ) : (
+                <p className="muted">
+                  Add or import columns to start configuring the table structure.
+                </p>
+              )}
+            </aside>
           </div>
         </section>
       </fieldset>
 
       <section className="table-editor-panel">
-        <h2>Preview</h2>
-        <div className="table-editor-table-scroll">
-          <table className="table-editor-preview-table">
+        <div className="table-editor-section-header">
+          <div>
+            <h2>Rendered preview</h2>
+            <p className="muted">
+              A cleaner view of the saved table output based on the normalized JSON payload.
+            </p>
+          </div>
+        </div>
+        <div className="table-editor-table-scroll table-editor-rendered-preview">
+          <table className="table-editor-preview-table table-editor-rendered-table">
             <thead>
               <tr>
-                {payload.columns.map((column) => (
-                  <th key={column.key}>{column.label}</th>
+                {normalizedPreviewPayload.columns.map((column) => (
+                  <th key={`preview-${column.key}`}>
+                    <span className="table-editor-rendered-head-label">{column.label}</span>
+                    <span className="table-editor-rendered-head-meta">{column.type}</span>
+                  </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {payload.rows.slice(0, 6).map((row) => (
-                <tr key={`preview-${row.id}`}>
-                  {payload.columns.map((column) => (
-                    <td key={`preview-${row.id}-${column.key}`}>{toInputValue(row[column.key])}</td>
-                  ))}
+              {normalizedPreviewPayload.rows.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={Math.max(normalizedPreviewPayload.columns.length, 1)}
+                    className="table-editor-empty-preview"
+                  >
+                    Import data to see the rendered table output here.
+                  </td>
                 </tr>
-              ))}
+              ) : (
+                normalizedPreviewPayload.rows.slice(0, 8).map((row) => (
+                  <tr key={`rendered-${row.id}`}>
+                    {normalizedPreviewPayload.columns.map((column) => (
+                      <td key={`rendered-${row.id}-${column.key}`}>
+                        {toInputValue(row[column.key])}
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -824,13 +911,18 @@ export function TableEditor() {
         </section>
 
         <section className="table-editor-panel">
-          <h2>Inline Scale Guardrail</h2>
+          <h2>Inline scale guardrail</h2>
           <p>
-            Rows: <strong>{scale.rowCount}</strong> / 150, Columns: <strong>{scale.columnCount}</strong> / 20, Payload size: <strong>{scale.payloadBytes}</strong> bytes.
+            Rows: <strong>{scale.rowCount}</strong> / 150, Columns:{" "}
+            <strong>{scale.columnCount}</strong> / 20, Payload size:{" "}
+            <strong>{scale.payloadBytes}</strong> bytes.
           </p>
           {scale.exceedsInlineLimit ? (
             <div className="table-editor-warn">
-              <p>This table exceeds practical Inline limits. Save is blocked; use Dataset mode for larger tables.</p>
+              <p>
+                This table exceeds practical Inline limits. You can still inspect the imported
+                data here, but save is blocked. Use the Dataset workflow for larger tables.
+              </p>
               <ul>
                 {scale.messages.map((message) => (
                   <li key={message}>{message}</li>
@@ -840,6 +932,16 @@ export function TableEditor() {
           ) : (
             <p className="table-editor-ok">Current size is within the Inline recommendation.</p>
           )}
+        </section>
+
+        <section className="table-editor-panel">
+          <h2>Saved payload JSON</h2>
+          <p className="muted">
+            This is the normalized JSON that will be stored in the custom element field.
+          </p>
+          <pre className="table-editor-json-panel">
+            {savedPayloadString ?? JSON.stringify(normalizedPreviewPayload, null, 2)}
+          </pre>
         </section>
       </div>
     </div>
