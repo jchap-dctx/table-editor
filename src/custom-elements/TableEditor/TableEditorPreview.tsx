@@ -41,33 +41,6 @@ function getColumnWidthStyle(column: InlineTableColumn): { width?: number; minWi
   return {};
 }
 
-function getTextValue(value: string | ReadonlyArray<MultiChoiceOption> | null | undefined): string {
-  if (!value) {
-    return "";
-  }
-
-  if (Array.isArray(value)) {
-    return value[0]?.codename ?? value[0]?.name ?? "";
-  }
-
-  return String(value);
-}
-
-function getNumberValue(value: string | ReadonlyArray<MultiChoiceOption> | null | undefined): number | null {
-  const text = getTextValue(value);
-  if (!text) {
-    return null;
-  }
-
-  const parsed = Number(text);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
-}
-
-function getVariantClass(variant: string): string {
-  const normalized = variant.trim().toLowerCase();
-  return normalized === "condensed" ? "is-condensed" : "is-full";
-}
-
 function firstDefined(...values: Array<string | undefined>): string | undefined {
   return values.find((value) => typeof value === "string" && value.trim());
 }
@@ -85,7 +58,13 @@ export function TableEditorPreview() {
   );
   const sourceElementCodenames = useMemo(() => {
     const fromConfig = [
-      firstDefined(config.sourceElementCodename, config.sourceCodename, config.elementCodename, config.textElementCodename, "table_editor"),
+      firstDefined(
+        config.sourceElementCodename,
+        config.sourceCodename,
+        config.elementCodename,
+        config.textElementCodename,
+        "table_editor",
+      ),
       ...(Array.isArray(config.sourceElementCodenames)
         ? config.sourceElementCodenames
         : typeof config.sourceElementCodenames === "string"
@@ -95,22 +74,7 @@ export function TableEditorPreview() {
 
     return fromConfig.map((value) => value?.trim()).filter(Boolean) as string[];
   }, [config]);
-  const displayElementCodenames = useMemo(
-    () =>
-      [
-        firstDefined(config.titleElementCodename, "title"),
-        firstDefined(config.captionElementCodename, "caption"),
-        firstDefined(config.variantElementCodename, "variant"),
-        firstDefined(config.pageSizeElementCodename, "page_size"),
-        firstDefined(config.emptyStateElementCodename, "empty_state_message"),
-        firstDefined(config.ctaLabelElementCodename, "cta_label"),
-        firstDefined(config.ctaLinkElementCodename, "cta_link"),
-      ]
-        .map((value) => value?.trim())
-        .filter(Boolean) as string[],
-    [config],
-  );
-  const watchedElements = useElements([...sourceElementCodenames, ...displayElementCodenames]);
+  const watchedElements = useElements(sourceElementCodenames);
   const watchedValue = sourceElementCodenames[0]
     ? watchedElements?.get(sourceElementCodenames[0]) ?? null
     : null;
@@ -124,39 +88,10 @@ export function TableEditorPreview() {
     return buildPayloadFromGrid({
       tableId: parsed.payload.tableId,
       columns: parsed.payload.columns,
-        rows: parsed.payload.rows,
-        metadata: parsed.payload.metadata,
-      });
+      rows: parsed.payload.rows,
+      metadata: parsed.payload.metadata,
+    });
   }, [parsed.payload, previewSourceValue]);
-  const titleCodename = firstDefined(config.titleElementCodename, "title");
-  const captionCodename = firstDefined(config.captionElementCodename, "caption");
-  const variantCodename = firstDefined(config.variantElementCodename, "variant");
-  const pageSizeCodename = firstDefined(config.pageSizeElementCodename, "page_size");
-  const emptyStateCodename = firstDefined(config.emptyStateElementCodename, "empty_state_message");
-  const ctaLabelCodename = firstDefined(config.ctaLabelElementCodename, "cta_label");
-  const ctaLinkCodename = firstDefined(config.ctaLinkElementCodename, "cta_link");
-  const title = getTextValue(titleCodename ? watchedElements?.get(titleCodename) : null) || config.title || "";
-  const caption =
-    getTextValue(captionCodename ? watchedElements?.get(captionCodename) : null) || config.caption || "";
-  const variant =
-    getTextValue(variantCodename ? watchedElements?.get(variantCodename) : null) || config.variant || "";
-  const pageSize =
-    getNumberValue(pageSizeCodename ? watchedElements?.get(pageSizeCodename) : null) ??
-    (typeof config.pageSize === "number"
-      ? config.pageSize
-      : typeof config.pageSize === "string"
-        ? Number(config.pageSize) || null
-        : null);
-  const emptyStateMessage =
-    getTextValue(emptyStateCodename ? watchedElements?.get(emptyStateCodename) : null) ||
-    config.emptyStateMessage ||
-    "No data available for this table.";
-  const ctaLabel =
-    getTextValue(ctaLabelCodename ? watchedElements?.get(ctaLabelCodename) : null) || config.ctaLabel || "";
-  const ctaLink =
-    getTextValue(ctaLinkCodename ? watchedElements?.get(ctaLinkCodename) : null) || config.ctaLink || "";
-  const variantClassName = getVariantClass(variant || "full");
-  const previewRows = pageSize ? payload.rows.slice(0, pageSize) : payload.rows;
 
   useEffect(() => {
     const serializedDraft = window.localStorage.getItem(storageKey);
@@ -190,83 +125,59 @@ export function TableEditorPreview() {
     }
 
     CustomElement.setHeight(Math.ceil(nextHeight + 24));
-  }, [caption, ctaLabel, emptyStateMessage, pageSize, payload, title, variantClassName, watchedElements]);
+  }, [payload]);
 
   const hasRows = payload.columns.length > 0 && payload.rows.length > 0;
 
   return (
     <div className="table-editor-root table-editor-preview-page" ref={rootRef}>
       {hasRows ? (
-      <section className={`table-editor-module-preview ${variantClassName}`}>
-        <div className="table-editor-module-frame">
-          {title || caption ? (
-            <div className="table-editor-module-header">
-              {title ? <h3>{title}</h3> : null}
-              {caption ? <p className="table-editor-module-caption">{caption}</p> : null}
-            </div>
-          ) : null}
-            <div className="table-editor-rendered-preview">
-              <table className="table-editor-preview-table table-editor-rendered-table">
-                <colgroup>
+        <section className="table-editor-inline-preview">
+          <div className="table-editor-rendered-preview">
+            <table className="table-editor-preview-table table-editor-rendered-table">
+              <colgroup>
+                {payload.columns.map((column) => (
+                  <col key={`preview-col-${column.key}`} style={getColumnWidthStyle(column)} />
+                ))}
+              </colgroup>
+              <thead>
+                <tr>
                   {payload.columns.map((column) => (
-                    <col key={`harness-col-${column.key}`} style={getColumnWidthStyle(column)} />
+                    <th
+                      key={`preview-head-${column.key}`}
+                      style={{ ...getColumnWidthStyle(column), textAlign: column.align }}
+                    >
+                      <span className="table-editor-rendered-head-label">{column.label}</span>
+                      <span className="table-editor-rendered-head-meta">{column.type}</span>
+                    </th>
                   ))}
-                </colgroup>
-                <thead>
-                  <tr>
+                </tr>
+              </thead>
+              <tbody>
+                {payload.rows.map((row) => (
+                  <tr key={`preview-row-${row.id}`}>
                     {payload.columns.map((column) => (
-                      <th
-                        key={`harness-head-${column.key}`}
+                      <td
+                        key={`preview-${row.id}-${column.key}`}
                         style={{ ...getColumnWidthStyle(column), textAlign: column.align }}
                       >
-                        <span className="table-editor-rendered-head-label">{column.label}</span>
-                        <span className="table-editor-rendered-head-meta">{column.type}</span>
-                      </th>
+                        <div className="table-editor-rendered-cell">
+                          <span className="table-editor-rendered-cell-primary">
+                            {formatPreviewCell(column, row[column.key])}
+                          </span>
+                        </div>
+                      </td>
                     ))}
                   </tr>
-                </thead>
-                <tbody>
-                  {previewRows.map((row) => (
-                    <tr key={`harness-row-${row.id}`}>
-                      {payload.columns.map((column) => (
-                        <td
-                          key={`harness-${row.id}-${column.key}`}
-                          style={{ ...getColumnWidthStyle(column), textAlign: column.align }}
-                        >
-                          <div className="table-editor-rendered-cell">
-                            <span className="table-editor-rendered-cell-primary">
-                              {formatPreviewCell(column, row[column.key])}
-                            </span>
-                          </div>
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          {ctaLabel ? (
-            <div className="table-editor-module-footer">
-              <a
-                className="table-editor-cta-button"
-                href={ctaLink || undefined}
-                target={ctaLink ? "_blank" : undefined}
-                rel={ctaLink ? "noreferrer" : undefined}
-                aria-disabled={!ctaLink}
-                onClick={(event) => {
-                  if (!ctaLink) {
-                    event.preventDefault();
-                  }
-                }}
-              >
-                {ctaLabel}
-              </a>
-            </div>
-          ) : null}
-        </div>
-      </section>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
       ) : (
-        <div className="table-editor-empty-preview-message">{emptyStateMessage}</div>
+        <div className="table-editor-empty-preview-message">
+          No inline table payload is available to preview.
+        </div>
       )}
     </div>
   );
