@@ -287,6 +287,10 @@
   background: #f7faff;
 }
 
+.table-editor-live-grid thead th {
+  transition: background-color 120ms ease, box-shadow 120ms ease;
+}
+
 .table-editor-row-index-head,
 .table-editor-row-index-cell {
   width: 52px;
@@ -317,6 +321,7 @@
 }
 
 .table-editor-column-head.is-selected {
+  background: linear-gradient(180deg, #fbfdff, #eef5ff);
   box-shadow: inset 0 -3px 0 var(--table-accent);
 }
 
@@ -348,6 +353,11 @@
   width: 100%;
   padding: 14px 14px 12px;
   cursor: pointer;
+  min-height: 100%;
+}
+
+.table-editor-column-surface:hover {
+  background: rgba(45, 108, 223, 0.03);
 }
 
 .table-editor-column-drag {
@@ -362,6 +372,7 @@
   background: transparent !important;
   font-weight: 700;
   font-size: 16px;
+  box-shadow: none !important;
 }
 
 .table-editor-column-meta {
@@ -391,6 +402,9 @@
   border-radius: 8px;
   padding: 10px 12px;
   box-shadow: none;
+  color: var(--table-text);
+  font-size: 14px;
+  line-height: 1.35;
 }
 
 .table-editor-live-grid td input:hover,
@@ -402,6 +416,10 @@
 .table-editor-live-grid td select:focus {
   background: #ffffff;
   border-color: var(--table-line-strong);
+}
+
+.table-editor-live-grid td input::placeholder {
+  color: #98a7b8;
 }
 
 .table-editor-column-sidebar {
@@ -475,13 +493,45 @@
   margin-top: 18px;
 }
 
+.table-editor-preview-summary {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+
+.table-editor-preview-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--table-line);
+  background: linear-gradient(180deg, #ffffff, #f8fbff);
+}
+
+.table-editor-preview-chip-label {
+  color: var(--table-muted);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 .table-editor-rendered-table th {
-  padding: 16px 18px 12px;
+  padding: 18px 20px 14px;
 }
 
 .table-editor-rendered-table td {
-  padding: 18px;
+  padding: 18px 20px;
   font-size: 15px;
+}
+
+.table-editor-rendered-table tbody tr:nth-child(even) td {
+  background: #fbfdff;
+}
+
+.table-editor-rendered-table tbody tr:hover td {
+  background: #f5f9ff;
 }
 
 .table-editor-rendered-head-label,

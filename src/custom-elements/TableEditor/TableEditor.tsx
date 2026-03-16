@@ -849,18 +849,32 @@ export function TableEditor() {
         </section>
       </fieldset>
 
-      <section className="table-editor-panel">
-        <div className="table-editor-section-header">
-          <div>
-            <h2>Rendered preview</h2>
-            <p className="muted">
-              A cleaner view of the saved table output based on the normalized JSON payload.
-            </p>
+        <section className="table-editor-panel">
+          <div className="table-editor-section-header">
+            <div>
+              <h2>Rendered preview</h2>
+              <p className="muted">
+                A cleaner view of the saved table output based on the normalized JSON payload.
+              </p>
+            </div>
           </div>
-        </div>
-        <div className="table-editor-table-scroll table-editor-rendered-preview">
-          <table className="table-editor-preview-table table-editor-rendered-table">
-            <thead>
+          <div className="table-editor-preview-summary">
+            <div className="table-editor-preview-chip">
+              <span className="table-editor-preview-chip-label">Columns</span>
+              <strong>{normalizedPreviewPayload.columns.length}</strong>
+            </div>
+            <div className="table-editor-preview-chip">
+              <span className="table-editor-preview-chip-label">Rows</span>
+              <strong>{normalizedPreviewPayload.rows.length}</strong>
+            </div>
+            <div className="table-editor-preview-chip">
+              <span className="table-editor-preview-chip-label">Source</span>
+              <strong>Inline</strong>
+            </div>
+          </div>
+          <div className="table-editor-table-scroll table-editor-rendered-preview">
+            <table className="table-editor-preview-table table-editor-rendered-table">
+              <thead>
               <tr>
                 {normalizedPreviewPayload.columns.map((column) => (
                   <th key={`preview-${column.key}`}>
