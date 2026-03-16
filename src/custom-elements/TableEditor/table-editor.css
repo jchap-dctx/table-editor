@@ -103,8 +103,7 @@
 }
 
 .table-editor-actions,
-.table-editor-builder-actions,
-.table-editor-import-actions {
+.table-editor-builder-actions {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
@@ -236,15 +235,6 @@
   cursor: not-allowed;
 }
 
-.table-editor-paste-panel {
-  display: grid;
-  gap: 10px;
-  border: 1px solid var(--table-line);
-  background: #fbfdff;
-  border-radius: 14px;
-  padding: 14px;
-}
-
 .table-editor-import-summary {
   margin: 0;
 }
@@ -276,7 +266,13 @@
 .table-editor-preview-table th,
 .table-editor-preview-table td {
   border-bottom: 1px solid #e5ecf4;
+  border-right: 1px solid #edf2f7;
   vertical-align: top;
+}
+
+.table-editor-live-grid tr > :last-child,
+.table-editor-preview-table tr > :last-child {
+  border-right: 0;
 }
 
 .table-editor-live-grid th,
@@ -297,6 +293,7 @@
   text-align: center;
   font-weight: 700;
   color: var(--table-muted);
+  border-right: 2px solid #dbe5f0 !important;
 }
 
 .table-editor-row-index-head,
@@ -318,6 +315,7 @@
   min-width: 180px;
   padding: 0;
   position: relative;
+  text-align: left;
 }
 
 .table-editor-column-head.is-selected {
@@ -384,6 +382,7 @@
 .table-editor-column-copy {
   display: grid;
   gap: 6px;
+  text-align: left;
 }
 
 .table-editor-column-type-pill {
@@ -409,17 +408,20 @@
   font-size: 16px;
   box-shadow: none !important;
   line-height: 1.2;
+  text-align: left;
 }
 
 .table-editor-column-meta {
   color: var(--table-muted);
   font-size: 12px;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
 .table-editor-live-grid td {
   padding: 12px 14px;
   background: #ffffff;
+  text-align: left;
 }
 
 .table-editor-live-grid tbody tr:nth-child(even) td {
@@ -461,6 +463,9 @@
 
 .table-editor-cell-input {
   min-height: 44px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
 }
 
 .table-editor-column-sidebar {
@@ -471,6 +476,14 @@
   display: grid;
   gap: 14px;
   align-content: start;
+}
+
+.table-editor-column-sidebar-header {
+  align-items: center;
+}
+
+.table-editor-column-sidebar-header p {
+  margin: 4px 0 0;
 }
 
 .table-editor-column-note {
@@ -560,11 +573,13 @@
 
 .table-editor-rendered-table th {
   padding: 20px 20px 16px;
+  text-align: left;
 }
 
 .table-editor-rendered-table td {
   padding: 16px 20px;
   font-size: 15px;
+  text-align: left;
 }
 
 .table-editor-rendered-table tbody tr:nth-child(even) td {
@@ -596,16 +611,21 @@
 .table-editor-rendered-cell {
   display: grid;
   gap: 4px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .table-editor-rendered-cell-primary {
   font-weight: 600;
   color: var(--table-text);
+  line-height: 1.5;
 }
 
 .table-editor-rendered-cell-secondary {
   color: var(--table-muted);
   font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .table-editor-json-panel {

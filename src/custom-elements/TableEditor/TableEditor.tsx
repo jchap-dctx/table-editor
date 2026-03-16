@@ -123,9 +123,7 @@ export function TableEditor() {
   const [importMessage, setImportMessage] = useState<string>(
     "Drop a CSV or paste spreadsheet data anywhere on the page. The first row is always used as headers.",
   );
-  const [rawPasteText, setRawPasteText] = useState("");
   const [isDragOver, setIsDragOver] = useState(false);
-  const [showPasteArea, setShowPasteArea] = useState(false);
   const [draggedColumnIndex, setDraggedColumnIndex] = useState<number | null>(null);
   const [dropIndicator, setDropIndicator] = useState<{
     targetIndex: number;
@@ -156,7 +154,7 @@ export function TableEditor() {
     }
 
     CustomElement.setHeight(Math.ceil(nextHeight + 24));
-  }, [payload, importErrors, loadWarnings, isLoading, savedMessage, showPasteArea, selectedColumnIndex]);
+  }, [payload, importErrors, loadWarnings, isLoading, savedMessage, selectedColumnIndex]);
 
   useEffect(() => {
     if (payload.columns.length === 0) {
@@ -187,6 +185,7 @@ export function TableEditor() {
   const savedPayloadString =
     typeof storedValue === "string" && storedValue.trim() ? storedValue : null;
   const selectedColumn = payload.columns[selectedColumnIndex] ?? null;
+  const selectedColumnLabel = selectedColumn?.label?.trim() || "Selected column";
 
   const canSave = !isDisabled && !isLoading && validation.isValid && !scale.exceedsInlineLimit;
 
@@ -282,19 +281,6 @@ export function TableEditor() {
     }));
   }
 
-  function moveColumn(columnIndex: number, direction: -1 | 1) {
-    const nextIndex = columnIndex + direction;
-    if (nextIndex < 0 || nextIndex >= payload.columns.length) {
-      return;
-    }
-
-    const nextColumns = [...payload.columns];
-    const [column] = nextColumns.splice(columnIndex, 1);
-    nextColumns.splice(nextIndex, 0, column);
-    updateColumns(nextColumns);
-    setSelectedColumnIndex(nextIndex);
-  }
-
   function reorderColumns(
     sourceIndex: number,
     targetIndex: number,
@@ -371,21 +357,6 @@ export function TableEditor() {
       importedAt: new Date().toLocaleTimeString(),
     });
     setSelectedColumnIndex(0);
-  }
-
-  function importTabularText(text: string, source: "paste" | "csv") {
-    const matrix = parseTabularText(text);
-    if (matrix.length === 0) {
-      setImportErrors(["Pasted content is empty or could not be parsed as a table."]);
-      return;
-    }
-
-    applyImportedMatrix(matrix, source);
-  }
-
-  function handlePasteFromTextarea() {
-    importTabularText(rawPasteText, "paste");
-    setRawPasteText("");
   }
 
   function handleRootPaste(event: ReactClipboardEvent<HTMLDivElement>) {
@@ -607,33 +578,6 @@ export function TableEditor() {
               </div>
             </div>
 
-            <div className="table-editor-import-actions">
-              <button type="button" onClick={() => setShowPasteArea((current) => !current)}>
-                {showPasteArea ? "Hide manual paste" : "Open manual paste fallback"}
-              </button>
-            </div>
-
-            {showPasteArea ? (
-              <div className="table-editor-paste-panel">
-                <label>
-                  <span>Paste spreadsheet data manually</span>
-                  <textarea
-                    rows={5}
-                    value={rawPasteText}
-                    onChange={(event) => setRawPasteText(event.target.value)}
-                    placeholder="Paste table data from Google Sheets or Excel"
-                  />
-                </label>
-                <button
-                  type="button"
-                  onClick={handlePasteFromTextarea}
-                  disabled={!rawPasteText.trim()}
-                >
-                  Import pasted text
-                </button>
-              </div>
-            ) : null}
-
             {lastImport ? (
               <div className="table-editor-ok table-editor-import-summary" role="status" aria-live="polite">
                 Loaded successfully from <strong>{lastImport.source.toUpperCase()}</strong> at {lastImport.importedAt}.{" "}
@@ -654,7 +598,7 @@ export function TableEditor() {
             <div>
               <h2>Live table builder</h2>
               <p className="muted">
-                Edit values inline, drag headers to reorder columns, and use the side panel for column settings.
+                Edit values inline, drag headers to reorder columns, and use the side panel for light column cleanup.
               </p>
             </div>
             <div className="table-editor-builder-actions">
@@ -778,7 +722,10 @@ export function TableEditor() {
 
             <aside className="table-editor-column-sidebar">
               <div className="table-editor-column-sidebar-header">
-                <h3>Selected column</h3>
+                <div>
+                  <h3>{selectedColumnLabel}</h3>
+                  <p className="muted">Label, key, type, and alignment for the active column.</p>
+                </div>
                 {selectedColumn ? (
                   <span className="table-editor-column-badge">
                     {selectedColumnIndex + 1} / {payload.columns.length}
@@ -838,25 +785,10 @@ export function TableEditor() {
                   </label>
 
                   <div className="table-editor-column-note muted">
-                    The first column is pinned automatically. Sort/search/visibility options are
-                    using MVP defaults for now.
+                    The first column is pinned automatically. Reorder directly in the grid by dragging the header.
                   </div>
 
                   <div className="table-editor-column-sidebar-actions">
-                    <button
-                      type="button"
-                      onClick={() => moveColumn(selectedColumnIndex, -1)}
-                      disabled={selectedColumnIndex === 0}
-                    >
-                      Move left
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => moveColumn(selectedColumnIndex, 1)}
-                      disabled={selectedColumnIndex === payload.columns.length - 1}
-                    >
-                      Move right
-                    </button>
                     <button
                       type="button"
                       onClick={() => removeColumn(selectedColumnIndex)}
@@ -880,7 +812,7 @@ export function TableEditor() {
             <div>
               <h2>Rendered preview</h2>
               <p className="muted">
-                A cleaner view of the saved table output based on the normalized JSON payload.
+                A cleaner table rendering based on the normalized JSON payload, styled closer to the data table module pattern.
               </p>
             </div>
           </div>
