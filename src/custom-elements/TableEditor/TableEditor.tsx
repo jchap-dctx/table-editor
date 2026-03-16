@@ -27,8 +27,6 @@ import type {
   InlineTableRow,
 } from "./types";
 import "./table-editor.css";
-
-const LOCAL_PREVIEW_STORAGE_KEY = "table-editor:last-saved-payload";
 type EditorTab = "build" | "preview" | "payload";
 
 function generateRowId(index: number): string {
@@ -155,12 +153,14 @@ export function TableEditor() {
   const [savedMessage, setSavedMessage] = useState("");
   const [activeTab, setActiveTab] = useState<EditorTab>("build");
   const [payload, setPayload] = useState<InlineTablePayloadV1>(createEmptyPayload());
+  const [hasUserChanges, setHasUserChanges] = useState(false);
 
   useEffect(() => {
     const parsed = parseStoredPayload(storedValue);
     setPayload(parsed.payload);
     setLoadWarnings(parsed.warnings);
     setSelectedColumnIndex(0);
+    setHasUserChanges(false);
     setIsLoading(false);
   }, [storedValue]);
 
@@ -234,10 +234,47 @@ export function TableEditor() {
   const selectedColumn = payload.columns[selectedColumnIndex] ?? null;
   const selectedColumnLabel = selectedColumn?.label?.trim() || "Selected column";
 
-  const canSave = !isDisabled && !isLoading && validation.isValid && !scale.exceedsInlineLimit;
+  useEffect(() => {
+    if (isLoading || isDisabled || !hasUserChanges || !validation.isValid || scale.exceedsInlineLimit) {
+      return;
+    }
+
+    const serializedPayload = JSON.stringify(normalizedPreviewPayload);
+    if (storedValue === serializedPayload) {
+      setHasUserChanges(false);
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setStoredValue(serializedPayload);
+      setSavedMessage(`Saved automatically at ${new Date().toLocaleTimeString()}.`);
+      setHasUserChanges(false);
+    }, 300);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [
+    hasUserChanges,
+    isDisabled,
+    isLoading,
+    normalizedPreviewPayload,
+    scale.exceedsInlineLimit,
+    setStoredValue,
+    storedValue,
+    validation.isValid,
+  ]);
+
+  function updatePayloadState(
+    updater:
+      | InlineTablePayloadV1
+      | ((current: InlineTablePayloadV1) => InlineTablePayloadV1),
+  ) {
+    setHasUserChanges(true);
+    setSavedMessage("");
+    setPayload(updater);
+  }
 
   function updateColumns(nextColumns: InlineTableColumn[]) {
-    setPayload((current) => ({
+    updatePayloadState((current) => ({
       ...current,
       columns: nextColumns,
       rows: syncRowsToColumns(current.rows, nextColumns),
@@ -284,7 +321,7 @@ export function TableEditor() {
     const oldKey = target.key;
     nextColumns[columnIndex] = { ...target, key: uniqueKey };
 
-    setPayload((current) => {
+    updatePayloadState((current) => {
       const nextRows = current.rows.map((row) => {
         const { [oldKey]: oldValue, ...rest } = row;
         return {
@@ -321,7 +358,7 @@ export function TableEditor() {
       return rest as InlineTableRow;
     });
 
-    setPayload((current) => ({
+    updatePayloadState((current) => ({
       ...current,
       columns: nextColumns,
       rows: syncRowsToColumns(nextRows, nextColumns),
@@ -350,21 +387,21 @@ export function TableEditor() {
   }
 
   function addRow() {
-    setPayload((current) => ({
+    updatePayloadState((current) => ({
       ...current,
       rows: [...current.rows, createEmptyRow(current.columns, current.rows.length)],
     }));
   }
 
   function removeRow(rowId: string) {
-    setPayload((current) => ({
+    updatePayloadState((current) => ({
       ...current,
       rows: current.rows.filter((row) => row.id !== rowId),
     }));
   }
 
   function updateCell(rowId: string, column: InlineTableColumn, nextValue: string) {
-    setPayload((current) => ({
+    updatePayloadState((current) => ({
       ...current,
       rows: current.rows.map((row) =>
         row.id === rowId
@@ -384,7 +421,7 @@ export function TableEditor() {
       return;
     }
 
-    setPayload((current) =>
+    updatePayloadState((current) =>
       buildPayloadFromGrid({
         tableId: current.tableId || "inline-table",
         columns: normalized.columns,
@@ -481,27 +518,6 @@ export function TableEditor() {
 
   function handleDragLeave() {
     setIsDragOver(false);
-  }
-
-  function savePayload() {
-    const normalized = buildPayloadFromGrid({
-      tableId: payload.tableId,
-      columns: payload.columns,
-      rows: payload.rows,
-      metadata: payload.metadata,
-    });
-
-    const saveValidation = validatePayload(normalized, { importErrors });
-    const saveScale = estimatePayloadScale(normalized);
-    if (!saveValidation.isValid || saveScale.exceedsInlineLimit) {
-      return;
-    }
-
-    const serializedPayload = JSON.stringify(normalized);
-    setStoredValue(serializedPayload);
-    window.localStorage.setItem(LOCAL_PREVIEW_STORAGE_KEY, serializedPayload);
-    setPayload(normalized);
-    setSavedMessage(`Saved at ${new Date().toLocaleTimeString()}.`);
   }
 
   function expandTextarea(element: HTMLTextAreaElement) {
@@ -679,11 +695,6 @@ export function TableEditor() {
             Payload
           </button>
         </div>
-        <div className="table-editor-actions">
-          <button type="button" className="primary" onClick={savePayload} disabled={!canSave}>
-            Save payload
-          </button>
-        </div>
       </div>
 
       {isLoading ? <p className="muted table-editor-status">Loading existing field value...</p> : null}
@@ -777,6 +788,7 @@ export function TableEditor() {
           </div>
         </section>
 
+        {payload.columns.length > 0 && !scale.exceedsInlineLimit ? (
         <section className="table-editor-panel table-editor-panel--flat">
           <div className="table-editor-section-header">
             <div>
@@ -988,6 +1000,7 @@ export function TableEditor() {
             </aside>
           </div>
         </section>
+        ) : null}
         </>
         ) : null}
 
@@ -1120,9 +1133,6 @@ export function TableEditor() {
               ))}
             </div>
           )}
-          <p className="muted">
-            Preview harness route: <code>/custom-elements/table-editor-preview</code>
-          </p>
         </section>
 
         <section className="table-editor-panel table-editor-panel--flat">

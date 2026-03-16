@@ -1,5 +1,9 @@
 export type Config = Readonly<{
   textElementCodename?: string;
+  sourceElementCodename?: string;
+  sourceElementCodenames?: ReadonlyArray<string> | string;
+  sourceCodename?: string;
+  elementCodename?: string;
 }>;
 
 export const isConfig = (

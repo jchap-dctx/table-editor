@@ -1,9 +1,9 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
+import { useConfig, useValue } from "../../context";
+import { useElements } from "../../helpers/selectors";
 import { buildPayloadFromGrid, createEmptyPayload, parseStoredPayload } from "./helpers";
 import type { InlineTableColumn, InlineTablePayloadV1 } from "./types";
 import "./table-editor.css";
-
-const LOCAL_PREVIEW_STORAGE_KEY = "table-editor:last-saved-payload";
 
 function formatPreviewCell(column: InlineTableColumn, value: unknown): string {
   if (value === null || value === undefined || value === "") {
@@ -37,49 +37,70 @@ function getColumnWidthStyle(column: InlineTableColumn): { width?: number; minWi
 }
 
 export function TableEditorPreview() {
-  const initialValue =
-    typeof window !== "undefined" ? window.localStorage.getItem(LOCAL_PREVIEW_STORAGE_KEY) ?? "" : "";
-  const [rawPayload, setRawPayload] = useState(initialValue);
+  const config = useConfig();
+  const [storedValue] = useValue();
+  const sourceElementCodenames = useMemo(() => {
+    const fromConfig = [
+      config.sourceElementCodename,
+      config.sourceCodename,
+      config.elementCodename,
+      config.textElementCodename,
+      ...(Array.isArray(config.sourceElementCodenames)
+        ? config.sourceElementCodenames
+        : typeof config.sourceElementCodenames === "string"
+          ? config.sourceElementCodenames.split(",")
+          : []),
+    ];
 
-  const parsed = useMemo(() => parseStoredPayload(rawPayload), [rawPayload]);
+    return fromConfig.map((value) => value?.trim()).filter(Boolean) as string[];
+  }, [config]);
+  const watchedElements = useElements(sourceElementCodenames);
+  const watchedValue = sourceElementCodenames[0]
+    ? watchedElements?.get(sourceElementCodenames[0]) ?? null
+    : null;
+  const previewSourceValue = watchedValue ?? storedValue;
+  const parsed = useMemo(() => parseStoredPayload(previewSourceValue), [previewSourceValue]);
   const payload: InlineTablePayloadV1 = useMemo(() => {
-    if (!rawPayload.trim()) {
+    if (!previewSourceValue || (typeof previewSourceValue === "string" && !previewSourceValue.trim())) {
       return createEmptyPayload();
     }
 
     return buildPayloadFromGrid({
       tableId: parsed.payload.tableId,
       columns: parsed.payload.columns,
-      rows: parsed.payload.rows,
-      metadata: parsed.payload.metadata,
-    });
-  }, [parsed.payload, rawPayload]);
+        rows: parsed.payload.rows,
+        metadata: parsed.payload.metadata,
+      });
+  }, [parsed.payload, previewSourceValue]);
+  const previewSourceLabel = sourceElementCodenames[0] ?? "this element";
 
   return (
     <div className="table-editor-root table-editor-preview-page">
       <section className="table-editor-panel table-editor-panel--flat">
         <div className="table-editor-section-header">
           <div>
-            <h2>Preview harness</h2>
-            <p className="muted">
-              Paste saved JSON from Kontent or use the last payload stored by the custom element.
-            </p>
+            <h2>Table preview</h2>
+            <p className="muted">Rendering the saved inline table payload from {previewSourceLabel}.</p>
           </div>
         </div>
-        <label className="table-editor-preview-json-input">
-          <span>Payload JSON</span>
-          <textarea
-            rows={10}
-            value={rawPayload}
-            onChange={(event) => setRawPayload(event.target.value)}
-            placeholder="Paste a saved table payload here"
-          />
-        </label>
         {parsed.warnings.length > 0 ? (
           <div className="table-editor-warn">
             {parsed.warnings.map((warning) => (
               <p key={warning}>{warning}</p>
             ))}
+          </div>
+        ) : null}
+        {sourceElementCodenames.length === 0 ? (
+          <div className="table-editor-warn">
+            <p>
+              Add <code>sourceElementCodename</code> in this custom element&apos;s JSON parameters to
+              point at the inline table field you want to preview.
+            </p>
+          </div>
+        ) : null}
+        {payload.columns.length === 0 && parsed.warnings.length === 0 ? (
+          <div className="table-editor-warn">
+            <p>No table payload is available in {previewSourceLabel} yet.</p>
           </div>
         ) : null}
       </section>
@@ -88,7 +109,7 @@ export function TableEditorPreview() {
         <div className="table-editor-section-header">
           <div>
             <h2>Rendered output</h2>
-            <p className="muted">A lightweight renderer for checking the saved JSON shape and output.</p>
+            <p className="muted">A lightweight renderer for checking the saved table output.</p>
           </div>
         </div>
         <div className="table-editor-preview-summary">
