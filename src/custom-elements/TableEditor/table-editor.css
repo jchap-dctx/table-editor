@@ -600,6 +600,7 @@
 .table-editor-rendered-table th {
   padding: 20px 20px 16px;
   text-align: left;
+  position: relative;
 }
 
 .table-editor-rendered-table td {
@@ -635,6 +636,33 @@
   font-size: 12px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.table-editor-column-resize-handle {
+  position: absolute;
+  top: 0;
+  right: -4px;
+  width: 8px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 3;
+}
+
+.table-editor-column-resize-handle::after {
+  content: "";
+  position: absolute;
+  top: 18%;
+  bottom: 18%;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: transparent;
+  transition: background-color 120ms ease;
+}
+
+.table-editor-rendered-table th:hover .table-editor-column-resize-handle::after {
+  background: rgba(45, 108, 223, 0.28);
 }
 
 .table-editor-rendered-cell {

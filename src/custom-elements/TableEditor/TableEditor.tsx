@@ -3,6 +3,7 @@ import type {
   ClipboardEvent as ReactClipboardEvent,
   DragEvent,
   FormEvent,
+  MouseEvent as ReactMouseEvent,
 } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useIsDisabled, useValue } from "../../context";
@@ -119,6 +120,11 @@ function isEditablePasteTarget(target: EventTarget | null): boolean {
 export function TableEditor() {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const resizeStateRef = useRef<{
+    columnIndex: number;
+    startX: number;
+    startWidth: number;
+  } | null>(null);
   const [storedValue, setStoredValue] = useValue();
   const isDisabled = useIsDisabled();
 
@@ -171,6 +177,30 @@ export function TableEditor() {
       setSelectedColumnIndex(payload.columns.length - 1);
     }
   }, [payload.columns.length, selectedColumnIndex]);
+
+  useEffect(() => {
+    function handlePointerMove(event: MouseEvent) {
+      const resizeState = resizeStateRef.current;
+      if (!resizeState) {
+        return;
+      }
+
+      const nextWidth = Math.max(80, Math.round(resizeState.startWidth + (event.clientX - resizeState.startX)));
+      updateColumn(resizeState.columnIndex, { width: nextWidth });
+    }
+
+    function handlePointerUp() {
+      resizeStateRef.current = null;
+    }
+
+    window.addEventListener("mousemove", handlePointerMove);
+    window.addEventListener("mouseup", handlePointerUp);
+
+    return () => {
+      window.removeEventListener("mousemove", handlePointerMove);
+      window.removeEventListener("mouseup", handlePointerUp);
+    };
+  }, [payload.columns]);
 
   const validation = useMemo(
     () => validatePayload(payload, { importErrors }),
@@ -483,6 +513,21 @@ export function TableEditor() {
     }
 
     return {};
+  }
+
+  function startPreviewResize(
+    event: ReactMouseEvent<HTMLSpanElement>,
+    columnIndex: number,
+    column: InlineTableColumn,
+  ) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    resizeStateRef.current = {
+      columnIndex,
+      startX: event.clientX,
+      startWidth: column.width ?? column.minWidth ?? 180,
+    };
   }
 
   function renderCellInput(row: InlineTableRow, column: InlineTableColumn) {
@@ -829,24 +874,8 @@ export function TableEditor() {
                       <option value="right">right</option>
                     </select>
                   </label>
-                  <label>
-                    <span>Width (px)</span>
-                    <input
-                      type="number"
-                      min={80}
-                      step={10}
-                      value={selectedColumn.width ?? ""}
-                      onChange={(event) =>
-                        updateColumn(selectedColumnIndex, {
-                          width: event.target.value ? Number(event.target.value) : null,
-                        })
-                      }
-                      placeholder="Auto"
-                    />
-                  </label>
-
                   <div className="table-editor-column-note muted">
-                    The first column is pinned automatically. Reorder directly in the grid by dragging the header. Width updates affect the live grid and preview.
+                    The first column is pinned automatically. Reorder in the grid by dragging the header, then resize columns directly from the rendered preview.
                   </div>
 
                   <div className="table-editor-column-sidebar-actions">
@@ -896,10 +925,17 @@ export function TableEditor() {
               <table className="table-editor-preview-table table-editor-rendered-table">
               <thead>
               <tr>
-                {normalizedPreviewPayload.columns.map((column) => (
+                {normalizedPreviewPayload.columns.map((column, index) => (
                   <th key={`preview-${column.key}`} style={getColumnWidthStyle(column)}>
                     <span className="table-editor-rendered-head-label">{column.label}</span>
                     <span className="table-editor-rendered-head-meta">{column.type}</span>
+                    <span
+                      className="table-editor-column-resize-handle"
+                      onMouseDown={(event) => startPreviewResize(event, index, column)}
+                      role="separator"
+                      aria-orientation="vertical"
+                      aria-label={`Resize ${column.label} column`}
+                    />
                   </th>
                 ))}
               </tr>
