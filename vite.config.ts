@@ -23,8 +23,9 @@ export default async function createConfig(): Promise<UserConfig> {
     path.resolve(__dirname, "node_modules/@kontent-ai/stylekit"),
   );
 
-  // basicSsl is optional in local fallback mode.
-  if (process.env.NODE_ENV === "development") {
+  // Keep local development on plain HTTP by default.
+  // Opt into HTTPS only when testing inside Kontent via a local tunnel.
+  if (process.env.NODE_ENV === "development" && process.env.USE_BASIC_SSL === "1") {
     try {
       const basicSslModule = await import("@vitejs/plugin-basic-ssl");
       plugins.push(
@@ -40,8 +41,15 @@ export default async function createConfig(): Promise<UserConfig> {
   return {
     base: "/custom-elements",
     server: {
+      port: 5173,
+      strictPort: true,
       host: true,
       allowedHosts: [".davecampbells.com"],
+      hmr: {
+        protocol: "ws",
+        host: "localhost",
+        port: 5173,
+      },
     },
     resolve: {
       alias: {

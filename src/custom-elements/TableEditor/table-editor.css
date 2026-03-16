@@ -258,8 +258,15 @@
 .table-editor-live-grid,
 .table-editor-preview-table {
   width: 100%;
-  min-width: 860px;
   border-collapse: collapse;
+}
+
+.table-editor-live-grid {
+  min-width: 860px;
+}
+
+.table-editor-preview-table {
+  table-layout: fixed;
 }
 
 .table-editor-live-grid th,
@@ -607,6 +614,7 @@
   padding: 16px 20px;
   font-size: 15px;
   text-align: left;
+  overflow: hidden;
 }
 
 .table-editor-rendered-table tbody tr:nth-child(even) td {
@@ -670,6 +678,7 @@
   gap: 0;
   overflow-wrap: anywhere;
   word-break: break-word;
+  max-width: 100%;
 }
 
 .table-editor-rendered-cell-primary {
